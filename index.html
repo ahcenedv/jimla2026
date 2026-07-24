@@ -12,6 +12,10 @@
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
+    <!-- ===== Firebase SDK ===== -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    
     <style>
         /* ========== RESET & BASE ========== */
         * {
@@ -30,7 +34,6 @@
             align-items: center;
         }
 
-        /* ========== HEADER ========== */
         .header {
             background: linear-gradient(135deg, #b71c1c, #d32f2f);
             color: white;
@@ -43,17 +46,8 @@
             box-shadow: 0 8px 25px rgba(183, 28, 28, 0.4);
         }
 
-        .header h1 {
-            font-size: 26px;
-            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        }
-        .header p {
-            font-size: 13px;
-            opacity: 0.9;
-            margin-top: 2px;
-        }
-
-        /* ===== الشارة الجديدة ===== */
+        .header h1 { font-size: 26px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .header p { font-size: 13px; opacity: 0.9; margin-top: 2px; }
         .header .badge {
             display: inline-block;
             background: rgba(255,255,255,0.15);
@@ -69,6 +63,23 @@
             backdrop-filter: blur(5px);
             box-shadow: 0 0 20px rgba(255,255,255,0.1);
         }
+
+        /* ========== STATUS BAR ========== */
+        .status-bar {
+            background: #1a1a2e;
+            color: #aaa;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 11px;
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 1200px;
+            text-align: center;
+            border: 1px solid #333;
+        }
+
+        .status-bar .connected { color: #4caf50; font-weight: bold; }
+        .status-bar .disconnected { color: #f44336; font-weight: bold; }
 
         /* ========== DASHBOARD ========== */
         .dashboard {
@@ -104,7 +115,7 @@
         .stat-card.extreme { border-right-color: #b71c1c; }
         .stat-card.extreme .stat-number { color: #b71c1c; }
 
-        /* ========== MARQUEE - إصلاح التوقف ========== */
+        /* ========== MARQUEE ========== */
         .marquee-container {
             background: linear-gradient(135deg, #1a1a2e, #16213e);
             color: white;
@@ -154,10 +165,7 @@
             will-change: transform;
         }
 
-        /* ===== إصلاح التوقف عند مرور الفأرة ===== */
-        .marquee-content:hover {
-            animation-play-state: paused !important;
-        }
+        .marquee-content:hover { animation-play-state: paused !important; }
 
         @keyframes marqueeAnim {
             0% { transform: translateX(0); }
@@ -664,9 +672,14 @@
 
     <!-- ===== HEADER ===== -->
     <div class="header">
-        <h1>🚨 نظام الإنذار المبكر جيملة للحرائق - ولاية سكيكدة</h1>
+        <h1>🚨 نظام الإنذار المبكر للحرائق - ولاية سكيكدة</h1>
         <p>📍 مراقبة شاملة للحرائق مع إنذار فوري وإحصائيات لحظية</p>
-        <span class="badge">✨ تصميم مجرداوي أحسن</span>
+        <span class="badge">✨ تصميم مجرداوي</span>
+    </div>
+
+    <!-- ===== STATUS BAR ===== -->
+    <div class="status-bar" id="statusBar">
+        🔌 جاري الاتصال بقاعدة البيانات السحابية...
     </div>
 
     <!-- ===== DASHBOARD ===== -->
@@ -773,6 +786,44 @@
     <!-- ======================== JAVASCRIPT ======================= -->
     <!-- ========================================================= -->
     <script>
+        // ============================================
+        // 🔥 إعداد Firebase (تم التحديث بقيم مشروعك)
+        // ============================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyDmBtzU5r4T05PWZ3zcaYh2M9RrHwS8M",
+            authDomain: "skikda-fires.firebaseapp.com",
+            projectId: "skikda-fires",
+            storageBucket: "skikda-fires.firebasestorage.app",
+            messagingSenderId: "198382849419",
+            appId: "1:198382849419:web:3be717cb52be8b8fb2038e"
+        };
+
+        // تهيئة Firebase
+        let db;
+        let isFirebaseReady = false;
+
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            
+            // اختبار الاتصال
+            db.collection('fires').limit(1).get()
+                .then(() => {
+                    isFirebaseReady = true;
+                    document.getElementById('statusBar').innerHTML = '✅ متصل بقاعدة البيانات السحابية <span class="connected">(مباشر)</span>';
+                    loadFiresFromCloud();
+                })
+                .catch((error) => {
+                    console.warn('⚠️ مشكلة في الاتصال بـ Firebase:', error);
+                    document.getElementById('statusBar').innerHTML = '⚠️ غير متصل بالسحابة - البيانات محلية فقط <span class="disconnected">(غير متصل)</span>';
+                    loadFiresFromLocal();
+                });
+        } catch (error) {
+            console.warn('⚠️ Firebase غير مهيأ:', error);
+            document.getElementById('statusBar').innerHTML = '⚠️ غير متصل بالسحابة - البيانات محلية فقط <span class="disconnected">(غير متصل)</span>';
+            loadFiresFromLocal();
+        }
+
         // ============================================
         // 1. قائمة بلديات ولاية سكيكدة
         // ============================================
@@ -999,33 +1050,64 @@
         let chartInstance = null;
 
         // ============================================
-        // 8. تحميل البيانات
+        // 8. تحميل البيانات من Firebase (مباشر)
         // ============================================
-        function loadFires() {
+        function loadFiresFromCloud() {
+            if (!isFirebaseReady) return;
+            
+            db.collection('fires')
+                .orderBy('addedAt', 'desc')
+                .onSnapshot((snapshot) => {
+                    const newFires = [];
+                    snapshot.forEach((doc) => {
+                        const data = doc.data();
+                        data.id = doc.id;
+                        newFires.push(data);
+                    });
+                    
+                    updateFires(newFires);
+                }, (error) => {
+                    console.error('❌ خطأ في الاستماع للبيانات:', error);
+                });
+        }
+
+        // ============================================
+        // 9. تحميل البيانات من localStorage (نسخ احتياطي)
+        // ============================================
+        function loadFiresFromLocal() {
             const saved = localStorage.getItem('skikdaFires');
             if (saved) {
                 try {
-                    fires = JSON.parse(saved);
-                    fires.forEach(fire => addFireToMap(fire, false));
-                    updateAll();
-                    updateInfo(`📊 تم تحميل ${fires.length} حريق محفوظ`, 'success');
+                    const localFires = JSON.parse(saved);
+                    updateFires(localFires);
+                    updateInfo(`📊 تم تحميل ${localFires.length} حريق من الجهاز`, 'success');
                 } catch (e) {
-                    console.error('خطأ في تحميل البيانات:', e);
+                    console.error('خطأ في تحميل البيانات المحلية:', e);
                 }
             }
         }
 
-        function saveFires() {
-            try {
-                localStorage.setItem('skikdaFires', JSON.stringify(fires));
-                updateAll();
-            } catch (e) {
-                console.error('خطأ في حفظ البيانات:', e);
-            }
+        // ============================================
+        // 10. تحديث الخريطة والإحصائيات
+        // ============================================
+        function updateFires(newFires) {
+            // إزالة العلامات القديمة
+            Object.keys(fireMarkers).forEach(id => {
+                map.removeLayer(fireMarkers[id]);
+                if (pulseCircles[id]) {
+                    map.removeLayer(pulseCircles[id]);
+                    delete pulseCircles[id];
+                }
+            });
+            fireMarkers = {};
+            
+            fires = newFires;
+            fires.forEach(fire => addFireToMap(fire, false));
+            updateAll();
         }
 
         // ============================================
-        // 9. تحديث كل شيء
+        // 11. تحديث كل شيء
         // ============================================
         function updateAll() {
             updateDashboard();
@@ -1034,7 +1116,7 @@
         }
 
         // ============================================
-        // 10. تحديث لوحة التحكم
+        // 12. تحديث لوحة التحكم
         // ============================================
         function updateDashboard() {
             const total = fires.length;
@@ -1056,7 +1138,7 @@
         }
 
         // ============================================
-        // 11. تحديث الشريط المتحرك
+        // 13. تحديث الشريط المتحرك
         // ============================================
         function updateMarquee() {
             const content = document.getElementById('marqueeContent');
@@ -1099,7 +1181,7 @@
         }
 
         // ============================================
-        // 12. تحديث الرسم البياني
+        // 14. تحديث الرسم البياني
         // ============================================
         function updateChart() {
             const ctx = document.getElementById('severityChart').getContext('2d');
@@ -1141,7 +1223,7 @@
         }
 
         // ============================================
-        // 13. دالة إضافة حريق
+        // 15. دالة إضافة حريق (إلى Firebase)
         // ============================================
         function addFire() {
             const place = document.getElementById('place').value.trim();
@@ -1162,7 +1244,6 @@
 
             const processFire = (lat, lng, placeName) => {
                 const fire = {
-                    id: Date.now(),
                     place: placeName || `نقطة (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
                     date: date || new Date().toISOString().split('T')[0],
                     severity: severity,
@@ -1173,18 +1254,27 @@
                     extinguished: false
                 };
 
-                fires.push(fire);
-                saveFires();
-                addFireToMap(fire, true);
-                clearForm();
-                
-                const severityLabel = severityConfig[severity].label;
-                updateInfo(`✅ تم تسجيل حريق في "${fire.place}" | الشدة: ${severityLabel}`, 'success');
-                
-                sendAlert(fire);
-                
-                btn.disabled = false;
-                btn.textContent = '➕ إضافة حريق';
+                if (isFirebaseReady) {
+                    db.collection('fires').add(fire)
+                        .then(() => {
+                            clearForm();
+                            const severityLabel = severityConfig[severity].label;
+                            updateInfo(`✅ تم تسجيل حريق في "${fire.place}" | الشدة: ${severityLabel}`, 'success');
+                            sendAlert(fire);
+                            btn.disabled = false;
+                            btn.textContent = '➕ إضافة حريق';
+                        })
+                        .catch((error) => {
+                            console.error('❌ خطأ في الحفظ:', error);
+                            saveFireLocal(fire);
+                            btn.disabled = false;
+                            btn.textContent = '➕ إضافة حريق';
+                        });
+                } else {
+                    saveFireLocal(fire);
+                    btn.disabled = false;
+                    btn.textContent = '➕ إضافة حريق';
+                }
             };
 
             if (latInput && lngInput) {
@@ -1229,7 +1319,28 @@
         }
 
         // ============================================
-        // 14. نظام الإنذار المبكر
+        // 16. حفظ محلي (نسخة احتياطية)
+        // ============================================
+        function saveFireLocal(fire) {
+            let localFires = [];
+            const saved = localStorage.getItem('skikdaFires');
+            if (saved) {
+                try {
+                    localFires = JSON.parse(saved);
+                } catch (e) {}
+            }
+            localFires.push({ ...fire, id: Date.now() });
+            localStorage.setItem('skikdaFires', JSON.stringify(localFires));
+            
+            updateFires(localFires);
+            
+            const severityLabel = severityConfig[fire.severity].label;
+            updateInfo(`✅ تم تسجيل حريق محلياً في "${fire.place}" | الشدة: ${severityLabel}`, 'success');
+            sendAlert(fire);
+        }
+
+        // ============================================
+        // 17. نظام الإنذار المبكر
         // ============================================
         function sendAlert(fire) {
             const severityLabel = severityConfig[fire.severity].label;
@@ -1271,7 +1382,7 @@
         }
 
         // ============================================
-        // 15. دالة عرض حريق مع وميض
+        // 18. دالة عرض حريق مع وميض
         // ============================================
         function addFireToMap(fire, animate = true) {
             const config = fire.extinguished ? 
@@ -1314,7 +1425,7 @@
                     <small style="color:#888;">🕒 ${new Date(fire.addedAt || fire.id).toLocaleString('ar')}</small>
                     ${!fire.extinguished ? `
                         <br><br>
-                        <button class="extinguish-btn" onclick="extinguishFire(${fire.id})">
+                        <button class="extinguish-btn" onclick="extinguishFire('${fire.id}')">
                             🧯 تم إطفاء الحريق
                         </button>
                     ` : `
@@ -1349,7 +1460,6 @@
                 className: 'leaflet-tooltip'
             });
 
-            // دائرة وامضة للحرائق الخطيرة
             let pulseCircle = null;
             if (isDangerous) {
                 const circleColor = isExtreme ? '#ff1744' : '#ff9100';
@@ -1392,39 +1502,30 @@
         }
 
         // ============================================
-        // 16. إطفاء الحريق
+        // 19. إطفاء الحريق (في Firebase)
         // ============================================
         function extinguishFire(fireId) {
-            const fireIndex = fires.findIndex(f => f.id === fireId);
-            if (fireIndex === -1) return;
-            
-            const fire = fires[fireIndex];
-            if (fire.extinguished) return;
-            
-            fire.extinguished = true;
-            fire.extinguishedAt = new Date().toISOString();
-            
-            if (pulseCircles[fireId]) {
-                map.removeLayer(pulseCircles[fireId]);
-                delete pulseCircles[fireId];
+            if (!isFirebaseReady) {
+                updateInfo('⚠️ غير متصل بالسحابة، لا يمكن الإطفاء', 'error');
+                return;
             }
-            
-            saveFires();
-            
-            if (fireMarkers[fireId]) {
-                map.removeLayer(fireMarkers[fireId]);
-                delete fireMarkers[fireId];
-            }
-            
-            addFireToMap(fire, true);
-            updateAll();
-            
-            updateInfo(`🧯 تم إطفاء الحريق في "${fire.place}"`, 'success');
-            map.closePopup();
+
+            db.collection('fires').doc(fireId).update({
+                extinguished: true,
+                extinguishedAt: new Date().toISOString()
+            })
+            .then(() => {
+                updateInfo(`🧯 تم إطفاء الحريق بنجاح`, 'success');
+                map.closePopup();
+            })
+            .catch((error) => {
+                console.error('❌ خطأ في الإطفاء:', error);
+                updateInfo('⚠️ حدث خطأ أثناء الإطفاء', 'error');
+            });
         }
 
         // ============================================
-        // 17. استيراد البيانات
+        // 20. استيراد البيانات
         // ============================================
         function importData(event) {
             const file = event.target.files[0];
@@ -1444,26 +1545,30 @@
                         return;
                     }
 
-                    Object.keys(fireMarkers).forEach(id => {
-                        map.removeLayer(fireMarkers[id]);
-                        if (pulseCircles[id]) {
-                            map.removeLayer(pulseCircles[id]);
-                            delete pulseCircles[id];
+                    if (isFirebaseReady) {
+                        data.fires.forEach((fire) => {
+                            if (!fire.addedAt) fire.addedAt = new Date().toISOString();
+                            if (fire.extinguished === undefined) fire.extinguished = false;
+                            db.collection('fires').add(fire);
+                        });
+                        updateInfo(`📤 جاري استيراد ${data.fires.length} حريق إلى السحابة...`, 'success');
+                    } else {
+                        let localFires = [];
+                        const saved = localStorage.getItem('skikdaFires');
+                        if (saved) {
+                            try {
+                                localFires = JSON.parse(saved);
+                            } catch (e) {}
                         }
-                    });
-                    fireMarkers = {};
-                    
-                    fires = data.fires;
-                    fires.forEach(f => {
-                        if (f.extinguished === undefined) f.extinguished = false;
-                        if (!f.addedAt) f.addedAt = new Date().toISOString();
-                    });
-                    
-                    saveFires();
-                    fires.forEach(fire => addFireToMap(fire, false));
-                    updateAll();
-                    
-                    updateInfo(`📤 تم استيراد ${fires.length} حريق بنجاح`, 'success');
+                        data.fires.forEach((fire) => {
+                            if (!fire.addedAt) fire.addedAt = new Date().toISOString();
+                            if (fire.extinguished === undefined) fire.extinguished = false;
+                            localFires.push(fire);
+                        });
+                        localStorage.setItem('skikdaFires', JSON.stringify(localFires));
+                        updateFires(localFires);
+                        updateInfo(`📤 تم استيراد ${data.fires.length} حريق محلياً`, 'success');
+                    }
                 } catch (error) {
                     console.error('خطأ في الاستيراد:', error);
                     updateInfo('⚠️ خطأ في قراءة الملف', 'error');
@@ -1474,7 +1579,7 @@
         }
 
         // ============================================
-        // 18. تصدير البيانات
+        // 21. تصدير البيانات
         // ============================================
         function exportData() {
             if (fires.length === 0) {
@@ -1503,7 +1608,7 @@
         }
 
         // ============================================
-        // 19. مسح جميع الحرائق
+        // 22. مسح جميع الحرائق
         // ============================================
         function clearAllFires() {
             if (fires.length === 0) {
@@ -1514,22 +1619,40 @@
             if (!confirm(`⚠️ هل أنت متأكد من مسح جميع الحرائق (${fires.length})؟`)) return;
             if (!confirm('تأكيد نهائي: سيتم حذف جميع البيانات نهائيًا!')) return;
 
-            Object.keys(fireMarkers).forEach(id => {
-                map.removeLayer(fireMarkers[id]);
-                if (pulseCircles[id]) {
-                    map.removeLayer(pulseCircles[id]);
-                    delete pulseCircles[id];
-                }
-            });
-            fireMarkers = {};
-            fires = [];
-            saveFires();
-            updateAll();
-            updateInfo('🗑️ تم مسح جميع الحرائق', 'success');
+            if (isFirebaseReady) {
+                db.collection('fires').get()
+                    .then((snapshot) => {
+                        const batch = db.batch();
+                        snapshot.forEach((doc) => {
+                            batch.delete(doc.ref);
+                        });
+                        return batch.commit();
+                    })
+                    .then(() => {
+                        updateInfo('🗑️ تم مسح جميع الحرائق من السحابة', 'success');
+                    })
+                    .catch((error) => {
+                        console.error('❌ خطأ في المسح:', error);
+                        updateInfo('⚠️ حدث خطأ أثناء المسح', 'error');
+                    });
+            } else {
+                localStorage.removeItem('skikdaFires');
+                Object.keys(fireMarkers).forEach(id => {
+                    map.removeLayer(fireMarkers[id]);
+                    if (pulseCircles[id]) {
+                        map.removeLayer(pulseCircles[id]);
+                        delete pulseCircles[id];
+                    }
+                });
+                fireMarkers = {};
+                fires = [];
+                updateAll();
+                updateInfo('🗑️ تم مسح جميع الحرائق محلياً', 'success');
+            }
         }
 
         // ============================================
-        // 20. تحديث المعلومات
+        // 23. تحديث المعلومات
         // ============================================
         function updateInfo(message, type = '') {
             const info = document.getElementById('info');
@@ -1550,7 +1673,7 @@
         }
 
         // ============================================
-        // 21. حرائق تجريبية
+        // 24. حرائق تجريبية
         // ============================================
         function loadSampleFires() {
             const samples = [
@@ -1563,39 +1686,65 @@
                 { place: 'جبل القل', date: '2026-07-05', severity: 'extreme', description: '🚨 امتد بسرعة - حالة طوارئ' }
             ];
 
-            let addedCount = 0;
-
-            samples.forEach(sample => {
-                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sample.place + '، سكيكدة، الجزائر')}&limit=1`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.length > 0) {
-                            const fire = {
-                                id: Date.now() + Math.random() * 1000,
-                                place: sample.place,
-                                date: sample.date,
-                                severity: sample.severity,
-                                description: sample.description,
-                                lat: parseFloat(data[0].lat),
-                                lng: parseFloat(data[0].lon),
-                                addedAt: new Date().toISOString(),
-                                extinguished: false
-                            };
-                            fires.push(fire);
-                            addFireToMap(fire, false);
-                            addedCount++;
-                            if (addedCount === samples.length) {
-                                saveFires();
-                                updateInfo(`📊 تم تحميل ${samples.length} حريق تجريبي - نظام الإنذار جاهز`, 'success');
+            if (isFirebaseReady) {
+                samples.forEach((sample) => {
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sample.place + '، سكيكدة، الجزائر')}&limit=1`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.length > 0) {
+                                const fire = {
+                                    place: sample.place,
+                                    date: sample.date,
+                                    severity: sample.severity,
+                                    description: sample.description,
+                                    lat: parseFloat(data[0].lat),
+                                    lng: parseFloat(data[0].lon),
+                                    addedAt: new Date().toISOString(),
+                                    extinguished: false
+                                };
+                                db.collection('fires').add(fire);
                             }
-                        }
-                    })
-                    .catch(err => console.error('خطأ:', err));
-            });
+                        })
+                        .catch(err => console.error('خطأ:', err));
+                });
+                updateInfo('📊 جاري تحميل حرائق تجريبية إلى السحابة...', 'success');
+            } else {
+                let localFires = [];
+                const saved = localStorage.getItem('skikdaFires');
+                if (saved) {
+                    try {
+                        localFires = JSON.parse(saved);
+                    } catch (e) {}
+                }
+                samples.forEach((sample) => {
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sample.place + '، سكيكدة، الجزائر')}&limit=1`)
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.length > 0) {
+                                const fire = {
+                                    id: Date.now() + Math.random() * 1000,
+                                    place: sample.place,
+                                    date: sample.date,
+                                    severity: sample.severity,
+                                    description: sample.description,
+                                    lat: parseFloat(data[0].lat),
+                                    lng: parseFloat(data[0].lon),
+                                    addedAt: new Date().toISOString(),
+                                    extinguished: false
+                                };
+                                localFires.push(fire);
+                                localStorage.setItem('skikdaFires', JSON.stringify(localFires));
+                                updateFires(localFires);
+                            }
+                        })
+                        .catch(err => console.error('خطأ:', err));
+                });
+                updateInfo('📊 جاري تحميل حرائق تجريبية محلياً...', 'success');
+            }
         }
 
         // ============================================
-        // 22. تشغيل التطبيق
+        // 25. تشغيل التطبيق
         // ============================================
         document.getElementById('date').value = new Date().toISOString().split('T')[0];
 
@@ -1614,11 +1763,11 @@
             Notification.requestPermission();
         }
 
-        loadFires();
-
         setTimeout(() => {
-            if (fires.length === 0) loadSampleFires();
-        }, 1500);
+            if (fires.length === 0) {
+                loadSampleFires();
+            }
+        }, 3000);
 
         setTimeout(() => {
             map.fitBounds(boundaryLayer.getBounds(), { padding: [40, 40], maxZoom: 12 });
