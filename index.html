@@ -1,0 +1,1657 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>نظام الإنذار المبكر للحرائق - ولاية سكيكدة</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        /* ========== RESET & BASE ========== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* ========== HEADER ========== */
+        .header {
+            background: linear-gradient(135deg, #b71c1c, #d32f2f);
+            color: white;
+            padding: 12px 25px;
+            border-radius: 16px;
+            margin-bottom: 12px;
+            text-align: center;
+            width: 100%;
+            max-width: 1200px;
+            box-shadow: 0 8px 25px rgba(183, 28, 28, 0.4);
+        }
+
+        .header h1 {
+            font-size: 26px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        .header p {
+            font-size: 13px;
+            opacity: 0.9;
+            margin-top: 2px;
+        }
+
+        /* ===== الشارة الجديدة ===== */
+        .header .badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.15);
+            padding: 5px 20px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #ffffff;
+            margin-top: 6px;
+            border: 1px solid rgba(255,255,255,0.3);
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(255,255,255,0.3);
+            backdrop-filter: blur(5px);
+            box-shadow: 0 0 20px rgba(255,255,255,0.1);
+        }
+
+        /* ========== DASHBOARD ========== */
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 8px;
+            width: 100%;
+            max-width: 1200px;
+            margin-bottom: 10px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 10px 12px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: all 0.3s;
+            border-right: 4px solid #ccc;
+        }
+
+        .stat-card:hover { transform: translateY(-3px); box-shadow: 0 6px 25px rgba(0,0,0,0.15); }
+        .stat-card .stat-number { font-size: 24px; font-weight: bold; }
+        .stat-card .stat-label { font-size: 12px; color: #666; margin-top: 2px; }
+        .stat-card.total { border-right-color: #1565c0; }
+        .stat-card.total .stat-number { color: #1565c0; }
+        .stat-card.active { border-right-color: #d32f2f; }
+        .stat-card.active .stat-number { color: #d32f2f; }
+        .stat-card.extinguished { border-right-color: #0d47a1; }
+        .stat-card.extinguished .stat-number { color: #0d47a1; }
+        .stat-card.danger { border-right-color: #ff6f00; }
+        .stat-card.danger .stat-number { color: #ff6f00; }
+        .stat-card.extreme { border-right-color: #b71c1c; }
+        .stat-card.extreme .stat-number { color: #b71c1c; }
+
+        /* ========== MARQUEE - إصلاح التوقف ========== */
+        .marquee-container {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 14px;
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 1200px;
+            border: 2px solid #ff6f00;
+            box-shadow: 0 4px 20px rgba(255, 111, 0, 0.3);
+            overflow: hidden;
+            position: relative;
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+        }
+
+        .marquee-container .marquee-icon {
+            font-size: 18px;
+            margin-left: 8px;
+            flex-shrink: 0;
+            animation: pulse 1.5s ease-in-out infinite;
+            z-index: 2;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .marquee-wrapper {
+            overflow: hidden;
+            flex: 1;
+            position: relative;
+            height: 32px;
+        }
+
+        .marquee-content {
+            display: flex;
+            white-space: nowrap;
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            align-items: center;
+            animation: marqueeAnim 20s linear infinite;
+            will-change: transform;
+        }
+
+        /* ===== إصلاح التوقف عند مرور الفأرة ===== */
+        .marquee-content:hover {
+            animation-play-state: paused !important;
+        }
+
+        @keyframes marqueeAnim {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+        }
+
+        .marquee-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 10px;
+            margin: 0 3px;
+            background: rgba(255,255,255,0.08);
+            border-radius: 30px;
+            border-right: 3px solid #ff6f00;
+            flex-shrink: 0;
+            font-size: 12px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .marquee-item:hover {
+            background: rgba(255,255,255,0.18);
+            transform: scale(1.04);
+        }
+
+        .marquee-item .fire-icon { font-size: 13px; }
+        .marquee-item .fire-place { font-weight: 600; color: #ffab91; }
+        .marquee-item .fire-severity {
+            font-size: 10px;
+            padding: 1px 8px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        .marquee-item .fire-severity.low { background: #1b5e20; color: #a5d6a7; }
+        .marquee-item .fire-severity.medium { background: #e65100; color: #fff8e1; }
+        .marquee-item .fire-severity.high { background: #bf360c; color: #ffe0b2; }
+        .marquee-item .fire-severity.extreme { background: #b71c1c; color: #ffcdd2; }
+        .marquee-item .fire-severity.extinguished { background: #0d47a1; color: #90caf9; }
+        .marquee-item .fire-date-small { color: #888; font-size: 9px; }
+
+        .marquee-stats {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+            padding-right: 10px;
+            border-right: 2px solid rgba(255,255,255,0.15);
+            font-size: 11px;
+            z-index: 2;
+            background: linear-gradient(to left, #1a1a2e 60%, transparent);
+            padding-left: 15px;
+            min-width: 55px;
+            justify-content: flex-end;
+        }
+
+        .marquee-stats .stat { display: flex; align-items: center; gap: 2px; }
+        .marquee-stats .stat .num { font-weight: bold; font-size: 14px; color: #ffab91; }
+        .marquee-empty { color: #aaa; font-size: 12px; padding: 5px 0; white-space: nowrap; }
+
+        /* ========== MAP & CHART ========== */
+        .map-chart-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 10px;
+            width: 100%;
+            max-width: 1200px;
+            margin-bottom: 10px;
+        }
+
+        #map {
+            width: 100%;
+            height: 400px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            border: 3px solid #b71c1c;
+            z-index: 1;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 16px;
+            padding: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            border: 2px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-container h3 {
+            text-align: center;
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        #severityChart {
+            width: 100% !important;
+            height: 280px !important;
+            max-height: 280px;
+        }
+
+        /* ========== FORM ========== */
+        .form-container {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+            margin-bottom: 10px;
+            width: 100%;
+            max-width: 1200px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .form-container:hover { box-shadow: 0 12px 40px rgba(0,0,0,0.2); }
+
+        .form-container input,
+        .form-container select,
+        .form-container button {
+            padding: 7px 12px;
+            border-radius: 30px;
+            border: 2px solid #e0e0e0;
+            font-size: 12px;
+            transition: all 0.3s;
+            background: #fafafa;
+            font-family: inherit;
+        }
+
+        .form-container input:focus,
+        .form-container select:focus {
+            border-color: #d32f2f;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(211, 47, 47, 0.15);
+            background: white;
+        }
+
+        .form-container input::placeholder { color: #999; }
+
+        .form-container button {
+            background: linear-gradient(135deg, #d32f2f, #b71c1c);
+            color: white;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            padding: 7px 20px;
+            font-size: 13px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 4px 15px rgba(211, 47, 47, 0.3);
+        }
+
+        .form-container button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(211, 47, 47, 0.4);
+        }
+
+        .form-container button:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .form-container .field-group {
+            display: flex;
+            gap: 4px;
+            flex: 1;
+            min-width: 90px;
+            align-items: center;
+        }
+
+        .form-container .field-group input {
+            flex: 1;
+            min-width: 45px;
+        }
+        .form-container .field-group label {
+            font-size: 11px;
+            font-weight: bold;
+            color: #555;
+            white-space: nowrap;
+        }
+
+        .location-btn {
+            background: #1565c0 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 30px !important;
+            padding: 5px 10px !important;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s;
+            min-width: 34px;
+        }
+
+        .location-btn:hover {
+            background: #0d47a1 !important;
+            transform: scale(1.05);
+        }
+
+        /* ========== ACTION BUTTONS ========== */
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-bottom: 8px;
+            width: 100%;
+            max-width: 1200px;
+        }
+
+        .action-btn {
+            padding: 6px 16px;
+            border-radius: 30px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+            color: white;
+        }
+
+        .action-btn:hover { transform: scale(1.05); }
+        .action-btn.export { background: #2e7d32; }
+        .action-btn.export:hover { background: #1b5e20; }
+        .action-btn.import { background: #1565c0; }
+        .action-btn.import:hover { background: #0d47a1; }
+        .action-btn.clear { background: #c62828; }
+        .action-btn.clear:hover { background: #b71c1c; }
+
+        /* ========== LEGEND ========== */
+        .legend {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 30px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            margin-bottom: 8px;
+            max-width: 1200px;
+            width: 100%;
+            border: 2px solid #e0e0e0;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            padding: 2px 8px;
+            border-radius: 20px;
+            transition: all 0.3s;
+        }
+
+        .legend-item:hover {
+            transform: scale(1.05);
+            background: #f5f5f5;
+        }
+        .legend-item .icon { font-size: 18px; line-height: 1; }
+        .legend-item .label { color: #333; }
+
+        /* ========== INFO ========== */
+        #info {
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 12px;
+            background: #fff8e1;
+            padding: 6px 16px;
+            border-radius: 30px;
+            border-right: 5px solid #d32f2f;
+            max-width: 1200px;
+            width: 100%;
+            text-align: center;
+            font-weight: 500;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            min-height: 34px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        #info.success { background: #e8f5e9; border-right-color: #2e7d32; }
+        #info.error { background: #ffebee; border-right-color: #c62828; }
+        #info.warning { background: #fff3e0; border-right-color: #e65100; }
+
+        /* ========== POPUP ========== */
+        .custom-popup .leaflet-popup-content-wrapper {
+            background: #1a1a1a;
+            color: #fff;
+            border-radius: 14px;
+            border-right: 6px solid #ff5722;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+        }
+
+        .custom-popup .leaflet-popup-tip { background: #1a1a1a; }
+        .custom-popup .leaflet-popup-content { margin: 10px 14px; min-width: 170px; }
+
+        .popup-content {
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .popup-content strong { color: #ffab91; }
+        .popup-content .severity-badge {
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-top: 2px;
+            font-size: 11px;
+        }
+        .popup-content .fire-date { color: #90caf9; }
+        .popup-content .gps-coords {
+            color: #81d4fa;
+            font-family: monospace;
+            font-size: 10px;
+        }
+        .popup-content .duration { color: #ffab91; font-size: 10px; }
+
+        .extinguish-btn {
+            background: #0d47a1 !important;
+            color: white !important;
+            border: none !important;
+            border-radius: 30px !important;
+            padding: 4px 12px !important;
+            cursor: pointer;
+            font-size: 11px !important;
+            font-weight: bold !important;
+            margin-top: 5px !important;
+            transition: all 0.3s !important;
+            width: 100% !important;
+            display: block !important;
+            text-align: center !important;
+        }
+
+        .extinguish-btn:hover {
+            background: #1a237e !important;
+            transform: scale(1.05);
+        }
+
+        .extinguish-btn:disabled {
+            background: #555 !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+        }
+
+        .extinguished-badge {
+            display: inline-block;
+            background: #0d47a1;
+            color: #90caf9;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-top: 3px;
+        }
+
+        .warning-badge {
+            display: inline-block;
+            background: #b71c1c;
+            color: #ffcdd2;
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-size: 10px;
+            font-weight: bold;
+            margin-top: 3px;
+            animation: blinkWarning 1s infinite;
+        }
+
+        @keyframes blinkWarning {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        /* ========== PULSING ANIMATION ========== */
+        .pulse-circle-extreme {
+            animation: pulseGlowExtreme 1.2s ease-in-out infinite;
+        }
+
+        .pulse-circle-high {
+            animation: pulseGlowHigh 1.8s ease-in-out infinite;
+        }
+
+        @keyframes pulseGlowExtreme {
+            0% { r: 15; opacity: 0.9; stroke-width: 4; }
+            50% { r: 35; opacity: 0.3; stroke-width: 8; }
+            100% { r: 15; opacity: 0.9; stroke-width: 4; }
+        }
+
+        @keyframes pulseGlowHigh {
+            0% { r: 12; opacity: 0.8; stroke-width: 3; }
+            50% { r: 28; opacity: 0.3; stroke-width: 6; }
+            100% { r: 12; opacity: 0.8; stroke-width: 3; }
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 768px) {
+            .header h1 { font-size: 20px; }
+            .header .badge { font-size: 13px; padding: 4px 14px; }
+            .map-chart-container { grid-template-columns: 1fr; }
+            #map { height: 300px; }
+            .chart-container { padding: 10px; }
+            #severityChart { height: 180px !important; max-height: 180px; }
+            .dashboard { grid-template-columns: repeat(3, 1fr); gap: 5px; }
+            .stat-card { padding: 6px 8px; }
+            .stat-card .stat-number { font-size: 18px; }
+            .stat-card .stat-label { font-size: 10px; }
+            .form-container { padding: 8px 10px; gap: 5px; }
+            .form-container input, .form-container select, .form-container button {
+                font-size: 11px; padding: 5px 8px; width: 100%;
+            }
+            .form-container .field-group { width: 100%; flex-wrap: wrap; }
+            .form-container .field-group input { flex: 1; min-width: 50px; }
+            .marquee-container { padding: 4px 8px; min-height: 32px; }
+            .marquee-item { font-size: 10px; padding: 1px 5px; gap: 2px; }
+            .marquee-item .fire-icon { font-size: 11px; }
+            .marquee-item .fire-date-small { font-size: 8px; }
+            .marquee-stats { font-size: 9px; padding-right: 5px; min-width: 40px; }
+            .marquee-stats .stat .num { font-size: 12px; }
+            .marquee-container .marquee-icon { font-size: 14px; margin-left: 4px; }
+            .legend { gap: 4px; padding: 4px 8px; }
+            .legend-item { font-size: 10px; }
+            .legend-item .icon { font-size: 14px; }
+            #info { font-size: 10px; padding: 5px 10px; min-height: 28px; }
+            .marquee-wrapper { height: 26px; }
+            .action-btn { font-size: 10px; padding: 4px 12px; }
+        }
+
+        @media (max-width: 480px) {
+            .header { padding: 8px 12px; }
+            .header h1 { font-size: 16px; }
+            .header .badge { font-size: 11px; padding: 3px 10px; }
+            #map { height: 220px; }
+            .dashboard { grid-template-columns: repeat(2, 1fr); }
+            .stat-card .stat-number { font-size: 16px; }
+            .marquee-item { font-size: 9px; padding: 1px 4px; }
+            .marquee-item .fire-icon { font-size: 9px; }
+            .marquee-stats .stat .num { font-size: 10px; }
+            .form-container { padding: 5px 6px; }
+            .form-container input, .form-container select, .form-container button {
+                font-size: 10px; padding: 4px 6px;
+            }
+            .marquee-container .marquee-icon { font-size: 11px; margin-left: 3px; }
+            .marquee-wrapper { height: 22px; }
+            .marquee-stats { min-width: 30px; font-size: 8px; padding-right: 3px; }
+            #severityChart { height: 130px !important; max-height: 130px; }
+        }
+
+        .leaflet-tooltip {
+            background: rgba(0,0,0,0.8);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 3px 8px;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .suggestions-container {
+            position: relative;
+            flex: 2;
+            min-width: 90px;
+        }
+
+        .suggestions-container input { width: 100%; }
+
+        .suggestions-list {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+            max-height: 150px;
+            overflow-y: auto;
+            z-index: 1000;
+            display: none;
+            margin-top: 3px;
+            border: 2px solid #e0e0e0;
+        }
+
+        .suggestions-list.show { display: block; }
+        .suggestions-list .suggestion-item {
+            padding: 5px 10px;
+            cursor: pointer;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background 0.2s;
+            font-size: 11px;
+        }
+
+        .suggestions-list .suggestion-item:hover { background: #f5f5f5; }
+        .suggestions-list .suggestion-item:last-child { border-bottom: none; }
+
+        #fileInput { display: none; }
+    </style>
+</head>
+<body>
+
+    <!-- ===== HEADER ===== -->
+    <div class="header">
+        <h1>🚨 نظام الإنذار المبكر جيملة للحرائق - ولاية سكيكدة</h1>
+        <p>📍 مراقبة شاملة للحرائق مع إنذار فوري وإحصائيات لحظية</p>
+        <span class="badge">✨ تصميم مجرداوي أحسن</span>
+    </div>
+
+    <!-- ===== DASHBOARD ===== -->
+    <div class="dashboard" id="dashboard">
+        <div class="stat-card total">
+            <div class="stat-number" id="totalCount">0</div>
+            <div class="stat-label">📊 إجمالي الحرائق</div>
+        </div>
+        <div class="stat-card active">
+            <div class="stat-number" id="activeCount">0</div>
+            <div class="stat-label">🔥 نشطة</div>
+        </div>
+        <div class="stat-card extinguished">
+            <div class="stat-number" id="extinguishedCount">0</div>
+            <div class="stat-label">✅ مطفأة</div>
+        </div>
+        <div class="stat-card danger">
+            <div class="stat-number" id="highDangerCount">0</div>
+            <div class="stat-label">🟠 عالية + قصوى</div>
+        </div>
+        <div class="stat-card extreme">
+            <div class="stat-number" id="extremeCount">0</div>
+            <div class="stat-label">🔴 قصوى (طارئ)</div>
+        </div>
+    </div>
+
+    <!-- ===== MARQUEE ===== -->
+    <div class="marquee-container">
+        <div class="marquee-icon">🚨</div>
+        <div class="marquee-wrapper">
+            <div class="marquee-content" id="marqueeContent">
+                <span class="marquee-empty">🚫 لا توجد حرائق مسجلة</span>
+            </div>
+        </div>
+        <div class="marquee-stats">
+            <span class="stat">📊 <span class="num" id="totalFires">0</span></span>
+        </div>
+    </div>
+
+    <!-- ===== MAP & CHART ===== -->
+    <div class="map-chart-container">
+        <div id="map"></div>
+        <div class="chart-container">
+            <h3>📈 توزيع الحرائق حسب الشدة</h3>
+            <canvas id="severityChart"></canvas>
+        </div>
+    </div>
+
+    <!-- ===== FORM ===== -->
+    <div class="form-container">
+        <div class="suggestions-container" style="flex:2; min-width:90px;">
+            <input type="text" id="place" placeholder="📍 اسم المكان" autocomplete="off" />
+            <div class="suggestions-list" id="suggestionsList"></div>
+        </div>
+
+        <div class="field-group" style="flex:1.5; min-width:120px;">
+            <label>🗺️ GPS:</label>
+            <input type="text" id="lat" placeholder="خط العرض" style="flex:1; min-width:45px;" />
+            <input type="text" id="lng" placeholder="خط الطول" style="flex:1; min-width:45px;" />
+            <button type="button" class="location-btn" onclick="getCurrentLocation()" title="الحصول على الموقع الحالي">📍</button>
+        </div>
+
+        <input type="date" id="date" style="flex:1; min-width:80px;" />
+
+        <select id="severity" style="flex:1; min-width:80px;">
+            <option value="low">🟢 منخفضة</option>
+            <option value="medium">🟡 متوسطة</option>
+            <option value="high">🟠 عالية</option>
+            <option value="extreme">🔴 قصوى</option>
+        </select>
+
+        <input type="text" id="description" placeholder="📝 وصف" style="flex:1.5; min-width:80px;" />
+
+        <button onclick="addFire()" style="flex:0.8; min-width:70px;">➕ إضافة</button>
+    </div>
+
+    <!-- ===== ACTION BUTTONS ===== -->
+    <div class="action-buttons">
+        <button class="action-btn export" onclick="exportData()">📥 تصدير</button>
+        <button class="action-btn import" onclick="document.getElementById('fileInput').click()">📤 استيراد</button>
+        <input type="file" id="fileInput" accept=".json" onchange="importData(event)" />
+        <button class="action-btn clear" onclick="clearAllFires()">🗑️ مسح الكل</button>
+    </div>
+
+    <!-- ===== LEGEND ===== -->
+    <div class="legend">
+        <div class="legend-item"><span class="icon">🟢</span><span class="label">منخفضة</span></div>
+        <div class="legend-item"><span class="icon">🟡</span><span class="label">متوسطة</span></div>
+        <div class="legend-item"><span class="icon">🟠</span><span class="label">عالية</span></div>
+        <div class="legend-item"><span class="icon">🔴</span><span class="label">قصوى</span></div>
+        <div class="legend-item"><span class="icon">🔵</span><span class="label">مُطفأ</span></div>
+        <div class="legend-item" style="color:#888; border-right:2px solid #ddd; padding-right:8px;">
+            <span style="font-size:14px;">💫</span> <span>وميض للحرائق الخطيرة</span>
+        </div>
+        <div class="legend-item" style="color:#888;">
+            <span style="font-size:14px;">📍</span> <span>حدود الولاية</span>
+        </div>
+    </div>
+
+    <!-- ===== INFO ===== -->
+    <div id="info">💡 نظام الإنذار المبكر - سجل حريقًا جديدًا لبدء المراقبة</div>
+
+    <!-- ========================================================= -->
+    <!-- ======================== JAVASCRIPT ======================= -->
+    <!-- ========================================================= -->
+    <script>
+        // ============================================
+        // 1. قائمة بلديات ولاية سكيكدة
+        // ============================================
+        const municipalities = [
+            { name: 'أم الطوب', lat: 36.800, lng: 6.890 },
+            { name: 'أمجاز الدشيش', lat: 36.750, lng: 6.950 },
+            { name: 'أولاد أحبابة', lat: 36.780, lng: 6.820 },
+            { name: 'أولاد عطية', lat: 36.840, lng: 6.780 },
+            { name: 'الحدائق', lat: 36.910, lng: 6.950 },
+            { name: 'السبت', lat: 36.890, lng: 6.800 },
+            { name: 'الشرايع', lat: 36.820, lng: 6.730 },
+            { name: 'القل', lat: 36.890, lng: 6.990 },
+            { name: 'الكركرة', lat: 36.860, lng: 7.020 },
+            { name: 'المرسى', lat: 36.930, lng: 6.920 },
+            { name: 'الولجة بوالبلوط', lat: 36.770, lng: 6.880 },
+            { name: 'بكوش لخضر', lat: 36.810, lng: 6.850 },
+            { name: 'بن عزوز', lat: 36.790, lng: 6.920 },
+            { name: 'بني بشير', lat: 36.830, lng: 6.800 },
+            { name: 'بني زيد', lat: 36.850, lng: 6.960 },
+            { name: 'بني ولبان', lat: 36.790, lng: 6.920 },
+            { name: 'بودوخة', lat: 36.740, lng: 6.840 },
+            { name: 'بوشطاطة', lat: 36.870, lng: 6.880 },
+            { name: 'بين الويدان', lat: 36.760, lng: 6.900 },
+            { name: 'تمالوس', lat: 36.850, lng: 6.960 },
+            { name: 'جندل', lat: 36.720, lng: 6.860 },
+            { name: 'الحروش', lat: 36.900, lng: 6.840 },
+            { name: 'حمادي كرومة', lat: 36.690, lng: 6.880 },
+            { name: 'خناق مايون', lat: 36.730, lng: 6.780 },
+            { name: 'رمضان جمال', lat: 36.920, lng: 6.880 },
+            { name: 'زردازة', lat: 36.830, lng: 6.920 },
+            { name: 'زيتونة', lat: 36.870, lng: 6.780 },
+            { name: 'سكيكدة', lat: 36.876, lng: 6.909 },
+            { name: 'سيدي مزغيش', lat: 36.950, lng: 6.870 },
+            { name: 'صالح بوالشعور', lat: 36.710, lng: 6.910 },
+            { name: 'عزابة', lat: 36.740, lng: 6.920 },
+            { name: 'عين بوزيان', lat: 36.820, lng: 6.930 },
+            { name: 'عين زويت', lat: 36.700, lng: 6.940 },
+            { name: 'عين شرشار', lat: 36.800, lng: 6.860 },
+            { name: 'عين قشرة', lat: 36.680, lng: 6.810 },
+            { name: 'فلفلة', lat: 36.960, lng: 6.920 },
+            { name: 'قنواع', lat: 36.690, lng: 6.960 },
+            { name: 'لغدير', lat: 36.730, lng: 6.800 },
+            { name: 'وادي الزهور', lat: 36.830, lng: 6.750 }
+        ];
+
+        // ============================================
+        // 2. تهيئة الخريطة
+        // ============================================
+        const map = L.map('map', {
+            center: [36.876, 6.909],
+            zoom: 11,
+            zoomControl: true
+        });
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 19
+        }).addTo(map);
+
+        // ============================================
+        // 3. حدود الولاية
+        // ============================================
+        const skikdaBoundary = {
+            "type": "FeatureCollection",
+            "features": [{
+                "type": "Feature",
+                "properties": { "name": "ولاية سكيكدة" },
+                "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [[
+                        [6.30, 37.15], [6.55, 37.20], [6.80, 37.18], [7.05, 37.15],
+                        [7.25, 37.10], [7.45, 37.05], [7.55, 36.98], [7.60, 36.90],
+                        [7.55, 36.82], [7.45, 36.75], [7.35, 36.68], [7.20, 36.62],
+                        [7.00, 36.58], [6.80, 36.55], [6.60, 36.58], [6.45, 36.62],
+                        [6.30, 36.70], [6.25, 36.80], [6.20, 36.90], [6.25, 37.02],
+                        [6.30, 37.15]
+                    ]]
+                }
+            }]
+        };
+
+        const boundaryLayer = L.geoJSON(skikdaBoundary, {
+            style: {
+                color: '#b71c1c',
+                weight: 5,
+                opacity: 0.9,
+                fillColor: '#ff5722',
+                fillOpacity: 0.06,
+                dashArray: '12, 8'
+            },
+            onEachFeature: function(feature, layer) {
+                layer.bindPopup(`
+                    <div style="text-align:center; padding:5px;">
+                        <strong style="color:#b71c1c; font-size:16px;">${feature.properties.name}</strong>
+                        <br><span style="color:#666;">حدود الولاية</span>
+                    </div>
+                `);
+            }
+        }).addTo(map);
+
+        // ============================================
+        // 4. نظام الاقتراحات
+        // ============================================
+        const placeInput = document.getElementById('place');
+        const suggestionsList = document.getElementById('suggestionsList');
+
+        placeInput.addEventListener('input', function() {
+            const query = this.value.trim().toLowerCase();
+            
+            if (query.length === 0) {
+                suggestionsList.classList.remove('show');
+                return;
+            }
+
+            const matches = municipalities.filter(m => 
+                m.name.includes(query) || m.name.startsWith(query)
+            );
+
+            if (matches.length === 0) {
+                suggestionsList.classList.remove('show');
+                return;
+            }
+
+            suggestionsList.innerHTML = '';
+            matches.forEach((m) => {
+                const div = document.createElement('div');
+                div.className = 'suggestion-item';
+                div.textContent = `🏛️ ${m.name}`;
+                div.addEventListener('click', function() {
+                    placeInput.value = m.name;
+                    document.getElementById('lat').value = m.lat.toFixed(6);
+                    document.getElementById('lng').value = m.lng.toFixed(6);
+                    suggestionsList.classList.remove('show');
+                    map.flyTo([m.lat, m.lng], 13, { duration: 1 });
+                    updateInfo(`📍 تم اختيار "${m.name}"`, 'success');
+                });
+                suggestionsList.appendChild(div);
+            });
+
+            suggestionsList.classList.add('show');
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.suggestions-container')) {
+                suggestionsList.classList.remove('show');
+            }
+        });
+
+        // ============================================
+        // 5. الموقع الحالي
+        // ============================================
+        function getCurrentLocation() {
+            if (!navigator.geolocation) {
+                updateInfo('⚠️ متصفحك لا يدعم تحديد الموقع', 'error');
+                return;
+            }
+
+            updateInfo('⏳ جاري الحصول على الموقع...', '');
+            
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+                    document.getElementById('lat').value = lat.toFixed(6);
+                    document.getElementById('lng').value = lng.toFixed(6);
+                    map.flyTo([lat, lng], 15, { duration: 1 });
+                    
+                    const marker = L.marker([lat, lng], {
+                        icon: L.divIcon({
+                            className: 'temp-marker',
+                            html: '📍',
+                            iconSize: [30, 30],
+                            iconAnchor: [15, 30]
+                        })
+                    }).addTo(map);
+                    setTimeout(() => map.removeLayer(marker), 3000);
+                    
+                    updateInfo(`📍 تم تحديد موقعك`, 'success');
+                },
+                function(error) {
+                    updateInfo('⚠️ لم نتمكن من تحديد موقعك', 'error');
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        }
+
+        // ============================================
+        // 6. أيقونات الشعلة
+        // ============================================
+        const severityConfig = {
+            low: { emoji: '🟢', color: '#2e7d32', label: 'منخفضة', iconSize: 36 },
+            medium: { emoji: '🟡', color: '#f57f17', label: 'متوسطة', iconSize: 38 },
+            high: { emoji: '🟠', color: '#e65100', label: 'عالية', iconSize: 40 },
+            extreme: { emoji: '🔴', color: '#b71c1c', label: 'قصوى', iconSize: 42 },
+            extinguished: { emoji: '🔵', color: '#0d47a1', label: 'مُطفأ', iconSize: 36 }
+        };
+
+        function getFlameIcon(severity, isExtinguished = false) {
+            let config;
+            if (isExtinguished) {
+                config = severityConfig.extinguished;
+            } else {
+                config = severityConfig[severity] || severityConfig.low;
+            }
+            
+            const iconHtml = isExtinguished ? '✅' : `${config.emoji}🔥`;
+            
+            return L.divIcon({
+                className: 'flame-icon',
+                html: iconHtml,
+                iconSize: [config.iconSize, config.iconSize],
+                iconAnchor: [config.iconSize / 2, config.iconSize],
+                popupAnchor: [0, -config.iconSize],
+                tooltipAnchor: [0, -config.iconSize]
+            });
+        }
+
+        // ============================================
+        // 7. مصفوفة الحرائق والعلامات
+        // ============================================
+        let fires = [];
+        let fireMarkers = {};
+        let pulseCircles = {};
+        let chartInstance = null;
+
+        // ============================================
+        // 8. تحميل البيانات
+        // ============================================
+        function loadFires() {
+            const saved = localStorage.getItem('skikdaFires');
+            if (saved) {
+                try {
+                    fires = JSON.parse(saved);
+                    fires.forEach(fire => addFireToMap(fire, false));
+                    updateAll();
+                    updateInfo(`📊 تم تحميل ${fires.length} حريق محفوظ`, 'success');
+                } catch (e) {
+                    console.error('خطأ في تحميل البيانات:', e);
+                }
+            }
+        }
+
+        function saveFires() {
+            try {
+                localStorage.setItem('skikdaFires', JSON.stringify(fires));
+                updateAll();
+            } catch (e) {
+                console.error('خطأ في حفظ البيانات:', e);
+            }
+        }
+
+        // ============================================
+        // 9. تحديث كل شيء
+        // ============================================
+        function updateAll() {
+            updateDashboard();
+            updateMarquee();
+            updateChart();
+        }
+
+        // ============================================
+        // 10. تحديث لوحة التحكم
+        // ============================================
+        function updateDashboard() {
+            const total = fires.length;
+            const active = fires.filter(f => !f.extinguished).length;
+            const extinguished = fires.filter(f => f.extinguished).length;
+            const highDanger = fires.filter(f => !f.extinguished && (f.severity === 'high' || f.severity === 'extreme')).length;
+            const extreme = fires.filter(f => !f.extinguished && f.severity === 'extreme').length;
+
+            document.getElementById('totalCount').textContent = total;
+            document.getElementById('activeCount').textContent = active;
+            document.getElementById('extinguishedCount').textContent = extinguished;
+            document.getElementById('highDangerCount').textContent = highDanger;
+            document.getElementById('extremeCount').textContent = extreme;
+
+            if (extreme > 0) {
+                document.getElementById('info').textContent = `🚨 تنبيه! هناك ${extreme} حريق/حرائق قصوى تتطلب تدخلًا فوريًا!`;
+                document.getElementById('info').className = 'warning';
+            }
+        }
+
+        // ============================================
+        // 11. تحديث الشريط المتحرك
+        // ============================================
+        function updateMarquee() {
+            const content = document.getElementById('marqueeContent');
+            const totalSpan = document.getElementById('totalFires');
+            
+            totalSpan.textContent = fires.length;
+
+            if (fires.length === 0) {
+                content.innerHTML = `
+                    <span class="marquee-empty">🚫 لا توجد حرائق مسجلة حتى الآن. أضف حريقًا جديدًا!</span>
+                `;
+                content.style.animation = 'none';
+                return;
+            }
+
+            const sorted = [...fires].reverse();
+            
+            let items = [];
+            sorted.forEach((fire) => {
+                const config = severityConfig[fire.severity] || severityConfig.low;
+                const severityClass = fire.extinguished ? 'extinguished' : (fire.severity || 'low');
+                const statusText = fire.extinguished ? '✅ مُطفأ' : `${config.emoji} ${config.label}`;
+                const icon = fire.extinguished ? '✅' : '🔥';
+                items.push(`
+                    <span class="marquee-item">
+                        <span class="fire-icon">${icon}</span>
+                        <span class="fire-place">${fire.place}</span>
+                        <span class="fire-severity ${severityClass}">${statusText}</span>
+                        <span class="fire-date-small">📅 ${fire.date}</span>
+                    </span>
+                `);
+            });
+
+            const allItems = items.join('') + items.join('');
+            content.innerHTML = allItems;
+            
+            content.style.animation = 'none';
+            void content.offsetWidth;
+            content.style.animation = 'marqueeAnim 20s linear infinite';
+        }
+
+        // ============================================
+        // 12. تحديث الرسم البياني
+        // ============================================
+        function updateChart() {
+            const ctx = document.getElementById('severityChart').getContext('2d');
+            
+            const activeFires = fires.filter(f => !f.extinguished);
+            const counts = {
+                low: activeFires.filter(f => f.severity === 'low').length,
+                medium: activeFires.filter(f => f.severity === 'medium').length,
+                high: activeFires.filter(f => f.severity === 'high').length,
+                extreme: activeFires.filter(f => f.severity === 'extreme').length
+            };
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['🟢 منخفضة', '🟡 متوسطة', '🟠 عالية', '🔴 قصوى'],
+                    datasets: [{
+                        data: [counts.low, counts.medium, counts.high, counts.extreme],
+                        backgroundColor: ['#2e7d32', '#f57f17', '#e65100', '#b71c1c'],
+                        borderColor: ['#1b5e20', '#e65100', '#bf360c', '#880e4f'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { font: { size: 10 }, padding: 6 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // ============================================
+        // 13. دالة إضافة حريق
+        // ============================================
+        function addFire() {
+            const place = document.getElementById('place').value.trim();
+            const latInput = document.getElementById('lat').value.trim();
+            const lngInput = document.getElementById('lng').value.trim();
+            const date = document.getElementById('date').value;
+            const severity = document.getElementById('severity').value;
+            const description = document.getElementById('description').value.trim();
+
+            if (!place && (!latInput || !lngInput)) {
+                updateInfo('⚠️ الرجاء إدخال اسم المكان أو الإحداثيات', 'error');
+                return;
+            }
+
+            const btn = document.querySelector('.form-container button');
+            btn.disabled = true;
+            btn.textContent = '⏳ جاري...';
+
+            const processFire = (lat, lng, placeName) => {
+                const fire = {
+                    id: Date.now(),
+                    place: placeName || `نقطة (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+                    date: date || new Date().toISOString().split('T')[0],
+                    severity: severity,
+                    description: description || 'لا يوجد وصف',
+                    lat: lat,
+                    lng: lng,
+                    addedAt: new Date().toISOString(),
+                    extinguished: false
+                };
+
+                fires.push(fire);
+                saveFires();
+                addFireToMap(fire, true);
+                clearForm();
+                
+                const severityLabel = severityConfig[severity].label;
+                updateInfo(`✅ تم تسجيل حريق في "${fire.place}" | الشدة: ${severityLabel}`, 'success');
+                
+                sendAlert(fire);
+                
+                btn.disabled = false;
+                btn.textContent = '➕ إضافة حريق';
+            };
+
+            if (latInput && lngInput) {
+                const lat = parseFloat(latInput);
+                const lng = parseFloat(lngInput);
+                
+                if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                    updateInfo('⚠️ إحداثيات غير صالحة', 'error');
+                    btn.disabled = false;
+                    btn.textContent = '➕ إضافة حريق';
+                    return;
+                }
+
+                processFire(lat, lng, place);
+                return;
+            }
+
+            if (place) {
+                const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place + '، سكيكدة، الجزائر')}&limit=1`;
+
+                fetch(searchUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.length === 0) {
+                            updateInfo(`❌ لم يتم العثور على "${place}"`, 'error');
+                            btn.disabled = false;
+                            btn.textContent = '➕ إضافة حريق';
+                            return;
+                        }
+
+                        const lat = parseFloat(data[0].lat);
+                        const lng = parseFloat(data[0].lon);
+                        processFire(lat, lng, place);
+                    })
+                    .catch(error => {
+                        console.error('خطأ:', error);
+                        updateInfo('⚠️ حدث خطأ في الاتصال', 'error');
+                        btn.disabled = false;
+                        btn.textContent = '➕ إضافة حريق';
+                    });
+            }
+        }
+
+        // ============================================
+        // 14. نظام الإنذار المبكر
+        // ============================================
+        function sendAlert(fire) {
+            const severityLabel = severityConfig[fire.severity].label;
+            const isHighRisk = fire.severity === 'high' || fire.severity === 'extreme';
+            
+            let alertMsg = `🚨 إنذار! حريق جديد في "${fire.place}" - الشدة: ${severityLabel}`;
+            if (isHighRisk) {
+                alertMsg += ` ⚠️ خطر مرتفع!`;
+            }
+            updateInfo(alertMsg, 'warning');
+
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('🚨 نظام الإنذار المبكر للحرائق', {
+                    body: `حريق جديد في ${fire.place}\nالشدة: ${severityLabel}\n${isHighRisk ? '⚠️ خطر مرتفع - تدخل فوري!' : ''}`,
+                    icon: '🔥'
+                });
+            } else if ('Notification' in window && Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
+
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                oscillator.frequency.value = isHighRisk ? 800 : 500;
+                oscillator.type = 'square';
+                gainNode.gain.value = 0.08;
+                oscillator.start();
+                setTimeout(() => oscillator.stop(), isHighRisk ? 800 : 400);
+            } catch (e) {}
+
+            if (fire.severity === 'extreme') {
+                setTimeout(() => {
+                    updateInfo(`🚨🚨 تنبيه عاجل! حريق قصوى في "${fire.place}" - استنفار فوري!`, 'warning');
+                }, 1000);
+            }
+        }
+
+        // ============================================
+        // 15. دالة عرض حريق مع وميض
+        // ============================================
+        function addFireToMap(fire, animate = true) {
+            const config = fire.extinguished ? 
+                severityConfig.extinguished : 
+                (severityConfig[fire.severity] || severityConfig.low);
+
+            const statusText = fire.extinguished ? 
+                '✅ مُطفأ' : 
+                `${config.emoji} ${config.label}`;
+
+            let durationText = '';
+            if (!fire.extinguished && fire.addedAt) {
+                const start = new Date(fire.addedAt);
+                const now = new Date();
+                const diffMs = now - start;
+                const diffMin = Math.floor(diffMs / 60000);
+                const diffHr = Math.floor(diffMin / 60);
+                const diffDay = Math.floor(diffHr / 24);
+                if (diffDay > 0) durationText = `⏱️ ${diffDay} يوم`;
+                else if (diffHr > 0) durationText = `⏱️ ${diffHr} ساعة`;
+                else if (diffMin > 0) durationText = `⏱️ ${diffMin} دقيقة`;
+                else durationText = `⏱️ أقل من دقيقة`;
+            }
+
+            const isDangerous = !fire.extinguished && (fire.severity === 'high' || fire.severity === 'extreme');
+            const isExtreme = !fire.extinguished && fire.severity === 'extreme';
+
+            const popupContent = `
+                <div class="popup-content">
+                    <strong>📍 المكان:</strong> ${fire.place}<br>
+                    <strong>📅 التاريخ:</strong> <span class="fire-date">${fire.date}</span><br>
+                    <strong>🗺️ الإحداثيات:</strong><br>
+                    <span class="gps-coords">${fire.lat.toFixed(6)}, ${fire.lng.toFixed(6)}</span><br>
+                    <strong>🔥 الشدة:</strong><br>
+                    <span class="severity-badge" style="background:${config.color}; color:white;">
+                        ${statusText}
+                    </span><br>
+                    ${!fire.extinguished ? `<span class="duration">${durationText}</span><br>` : ''}
+                    <strong>📝 الوصف:</strong> ${fire.description || 'لا يوجد'}<br>
+                    <small style="color:#888;">🕒 ${new Date(fire.addedAt || fire.id).toLocaleString('ar')}</small>
+                    ${!fire.extinguished ? `
+                        <br><br>
+                        <button class="extinguish-btn" onclick="extinguishFire(${fire.id})">
+                            🧯 تم إطفاء الحريق
+                        </button>
+                    ` : `
+                        <br>
+                        <div class="extinguished-badge">✅ تم إطفاء هذا الحريق</div>
+                    `}
+                    ${isExtreme ? `
+                        <br>
+                        <div class="warning-badge">🚨 حالة طارئة - تدخل فوري</div>
+                    ` : ''}
+                    ${isDangerous && !isExtreme ? `
+                        <br>
+                        <div class="warning-badge" style="background:#e65100; color:#fff8e1; animation: blinkWarning 1.5s infinite;">⚠️ خطر مرتفع - مراقبة مستمرة</div>
+                    ` : ''}
+                </div>
+            `;
+
+            const icon = getFlameIcon(fire.severity, fire.extinguished);
+            
+            const marker = L.marker([fire.lat, fire.lng], {
+                icon: icon,
+                title: fire.place + (fire.extinguished ? ' (مُطفأ)' : '')
+            })
+            .addTo(map)
+            .bindPopup(popupContent, {
+                className: 'custom-popup',
+                maxWidth: 280
+            })
+            .bindTooltip(fire.place + (fire.extinguished ? ' ✅' : ''), {
+                permanent: false,
+                direction: 'top',
+                className: 'leaflet-tooltip'
+            });
+
+            // دائرة وامضة للحرائق الخطيرة
+            let pulseCircle = null;
+            if (isDangerous) {
+                const circleColor = isExtreme ? '#ff1744' : '#ff9100';
+                const pulseClass = isExtreme ? 'pulse-circle-extreme' : 'pulse-circle-high';
+                
+                pulseCircle = L.circleMarker([fire.lat, fire.lng], {
+                    radius: isExtreme ? 20 : 16,
+                    color: circleColor,
+                    weight: 4,
+                    opacity: 0.9,
+                    fillColor: circleColor,
+                    fillOpacity: 0.15,
+                    className: pulseClass
+                }).addTo(map);
+                
+                L.circleMarker([fire.lat, fire.lng], {
+                    radius: isExtreme ? 8 : 6,
+                    color: circleColor,
+                    weight: 2,
+                    opacity: 0.6,
+                    fillColor: circleColor,
+                    fillOpacity: 0.3,
+                    interactive: false
+                }).addTo(map);
+                
+                pulseCircles[fire.id] = pulseCircle;
+            }
+
+            fireMarkers[fire.id] = marker;
+
+            if (animate) {
+                const targetLatLng = L.latLng(fire.lat, fire.lng);
+                setTimeout(() => marker.openPopup(), 300);
+                if (map.getZoom() < 14) {
+                    map.flyTo(targetLatLng, 14, { duration: 1.2 });
+                }
+            }
+
+            return marker;
+        }
+
+        // ============================================
+        // 16. إطفاء الحريق
+        // ============================================
+        function extinguishFire(fireId) {
+            const fireIndex = fires.findIndex(f => f.id === fireId);
+            if (fireIndex === -1) return;
+            
+            const fire = fires[fireIndex];
+            if (fire.extinguished) return;
+            
+            fire.extinguished = true;
+            fire.extinguishedAt = new Date().toISOString();
+            
+            if (pulseCircles[fireId]) {
+                map.removeLayer(pulseCircles[fireId]);
+                delete pulseCircles[fireId];
+            }
+            
+            saveFires();
+            
+            if (fireMarkers[fireId]) {
+                map.removeLayer(fireMarkers[fireId]);
+                delete fireMarkers[fireId];
+            }
+            
+            addFireToMap(fire, true);
+            updateAll();
+            
+            updateInfo(`🧯 تم إطفاء الحريق في "${fire.place}"`, 'success');
+            map.closePopup();
+        }
+
+        // ============================================
+        // 17. استيراد البيانات
+        // ============================================
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (!data.fires || !Array.isArray(data.fires)) {
+                        updateInfo('⚠️ ملف غير صالح', 'error');
+                        return;
+                    }
+
+                    if (!confirm(`📤 سيتم استيراد ${data.fires.length} حريق. هل تريد المتابعة؟`)) {
+                        return;
+                    }
+
+                    Object.keys(fireMarkers).forEach(id => {
+                        map.removeLayer(fireMarkers[id]);
+                        if (pulseCircles[id]) {
+                            map.removeLayer(pulseCircles[id]);
+                            delete pulseCircles[id];
+                        }
+                    });
+                    fireMarkers = {};
+                    
+                    fires = data.fires;
+                    fires.forEach(f => {
+                        if (f.extinguished === undefined) f.extinguished = false;
+                        if (!f.addedAt) f.addedAt = new Date().toISOString();
+                    });
+                    
+                    saveFires();
+                    fires.forEach(fire => addFireToMap(fire, false));
+                    updateAll();
+                    
+                    updateInfo(`📤 تم استيراد ${fires.length} حريق بنجاح`, 'success');
+                } catch (error) {
+                    console.error('خطأ في الاستيراد:', error);
+                    updateInfo('⚠️ خطأ في قراءة الملف', 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        }
+
+        // ============================================
+        // 18. تصدير البيانات
+        // ============================================
+        function exportData() {
+            if (fires.length === 0) {
+                updateInfo('⚠️ لا توجد بيانات للتصدير', 'error');
+                return;
+            }
+
+            const data = {
+                exportedAt: new Date().toISOString(),
+                totalFires: fires.length,
+                activeFires: fires.filter(f => !f.extinguished).length,
+                extinguishedFires: fires.filter(f => f.extinguished).length,
+                fires: fires
+            };
+
+            const json = JSON.stringify(data, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `حرائق_سكيكدة_${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            updateInfo(`📥 تم تصدير ${fires.length} حريق بنجاح`, 'success');
+        }
+
+        // ============================================
+        // 19. مسح جميع الحرائق
+        // ============================================
+        function clearAllFires() {
+            if (fires.length === 0) {
+                updateInfo('⚠️ لا توجد حرائق للمسح', 'error');
+                return;
+            }
+
+            if (!confirm(`⚠️ هل أنت متأكد من مسح جميع الحرائق (${fires.length})؟`)) return;
+            if (!confirm('تأكيد نهائي: سيتم حذف جميع البيانات نهائيًا!')) return;
+
+            Object.keys(fireMarkers).forEach(id => {
+                map.removeLayer(fireMarkers[id]);
+                if (pulseCircles[id]) {
+                    map.removeLayer(pulseCircles[id]);
+                    delete pulseCircles[id];
+                }
+            });
+            fireMarkers = {};
+            fires = [];
+            saveFires();
+            updateAll();
+            updateInfo('🗑️ تم مسح جميع الحرائق', 'success');
+        }
+
+        // ============================================
+        // 20. تحديث المعلومات
+        // ============================================
+        function updateInfo(message, type = '') {
+            const info = document.getElementById('info');
+            info.textContent = message;
+            info.className = type;
+            clearTimeout(info._timeout);
+            info._timeout = setTimeout(() => {
+                if (type !== 'success' && type !== 'warning') info.className = '';
+            }, 6000);
+        }
+
+        function clearForm() {
+            document.getElementById('place').value = '';
+            document.getElementById('lat').value = '';
+            document.getElementById('lng').value = '';
+            document.getElementById('description').value = '';
+            document.getElementById('date').value = new Date().toISOString().split('T')[0];
+        }
+
+        // ============================================
+        // 21. حرائق تجريبية
+        // ============================================
+        function loadSampleFires() {
+            const samples = [
+                { place: 'جبل بوكحيل', date: '2026-07-20', severity: 'extreme', description: '🚨 حريق هائل - استنفار فوري!' },
+                { place: 'غابة بني بشير', date: '2026-07-18', severity: 'high', description: 'اندلع بسبب موجة حر شديدة' },
+                { place: 'جبل السخنة', date: '2026-07-15', severity: 'medium', description: 'تمت السيطرة عليه بعد 3 ساعات' },
+                { place: 'غابة تمالوس', date: '2026-07-12', severity: 'low', description: 'حريق صغير تم إخماده بسرعة' },
+                { place: 'عين بوزيان', date: '2026-07-10', severity: 'high', description: 'قرب المناطق السكنية - خطر داهم' },
+                { place: 'غابة الحروش', date: '2026-07-08', severity: 'medium', description: 'ناتج عن إهمال بشري' },
+                { place: 'جبل القل', date: '2026-07-05', severity: 'extreme', description: '🚨 امتد بسرعة - حالة طوارئ' }
+            ];
+
+            let addedCount = 0;
+
+            samples.forEach(sample => {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sample.place + '، سكيكدة، الجزائر')}&limit=1`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.length > 0) {
+                            const fire = {
+                                id: Date.now() + Math.random() * 1000,
+                                place: sample.place,
+                                date: sample.date,
+                                severity: sample.severity,
+                                description: sample.description,
+                                lat: parseFloat(data[0].lat),
+                                lng: parseFloat(data[0].lon),
+                                addedAt: new Date().toISOString(),
+                                extinguished: false
+                            };
+                            fires.push(fire);
+                            addFireToMap(fire, false);
+                            addedCount++;
+                            if (addedCount === samples.length) {
+                                saveFires();
+                                updateInfo(`📊 تم تحميل ${samples.length} حريق تجريبي - نظام الإنذار جاهز`, 'success');
+                            }
+                        }
+                    })
+                    .catch(err => console.error('خطأ:', err));
+            });
+        }
+
+        // ============================================
+        // 22. تشغيل التطبيق
+        // ============================================
+        document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && e.target.closest('.form-container')) {
+                e.preventDefault();
+                if (e.target.id === 'place' && suggestionsList.classList.contains('show')) {
+                    const firstSuggestion = suggestionsList.querySelector('.suggestion-item');
+                    if (firstSuggestion) { firstSuggestion.click(); return; }
+                }
+                addFire();
+            }
+        });
+
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        loadFires();
+
+        setTimeout(() => {
+            if (fires.length === 0) loadSampleFires();
+        }, 1500);
+
+        setTimeout(() => {
+            map.fitBounds(boundaryLayer.getBounds(), { padding: [40, 40], maxZoom: 12 });
+        }, 500);
+
+        console.log('🚨 نظام الإنذار المبكر للحرائق - سكيكدة');
+        console.log(`🏛️ عدد البلديات: ${municipalities.length}`);
+        console.log(`📊 عدد الحرائق: ${fires.length}`);
+        console.log('💡 اكتب getStats() للإحصائيات');
+
+        window.getStats = function() {
+            const stats = {
+                total: fires.length,
+                active: fires.filter(f => !f.extinguished).length,
+                extinguished: fires.filter(f => f.extinguished).length,
+                bySeverity: {
+                    low: fires.filter(f => f.severity === 'low' && !f.extinguished).length,
+                    medium: fires.filter(f => f.severity === 'medium' && !f.extinguished).length,
+                    high: fires.filter(f => f.severity === 'high' && !f.extinguished).length,
+                    extreme: fires.filter(f => f.severity === 'extreme' && !f.extinguished).length
+                }
+            };
+            console.log(`📊 إحصائيات نظام الإنذار المبكر:`);
+            console.log(`   🔥 المجموع: ${stats.total}`);
+            console.log(`   🔴 نشطة: ${stats.active}`);
+            console.log(`   ✅ مطفأة: ${stats.extinguished}`);
+            console.log(`   ⚠️ عالية+قصوى: ${stats.bySeverity.high + stats.bySeverity.extreme}`);
+            console.table(stats.bySeverity);
+            return stats;
+        };
+
+        console.log('✅ النظام جاهز للعمل!');
+    </script>
+
+</body>
+</html>
