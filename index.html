@@ -3,12 +3,16 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>نظام الإنذار المبكر للحرائق - ولاية سكيكدة</title>
+    <title>نظام جيملة الإنذار المبكر للحرائق - ولاية سكيكدة</title>
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Leaflet Fullscreen CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-fullscreen@1.0.2/dist/leaflet.fullscreen.css" />
+    <!-- Leaflet Fullscreen JS -->
+    <script src="https://unpkg.com/leaflet-fullscreen@1.0.2/dist/Leaflet.fullscreen.js"></script>
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -34,6 +38,96 @@
             align-items: center;
         }
 
+        /* ========== شاشة تسجيل الدخول ========== */
+        #loginScreen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            flex-direction: column;
+            padding: 20px;
+        }
+
+        #loginScreen.hidden {
+            display: none;
+        }
+
+        .login-box {
+            background: white;
+            padding: 40px 35px;
+            border-radius: 24px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+            border: 2px solid #b71c1c;
+        }
+
+        .login-box h2 {
+            color: #b71c1c;
+            font-size: 26px;
+            margin-bottom: 5px;
+        }
+
+        .login-box p {
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 25px;
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 30px;
+            font-size: 15px;
+            transition: 0.3s;
+            background: #fafafa;
+            font-family: inherit;
+            text-align: right;
+        }
+
+        .login-box input:focus {
+            border-color: #b71c1c;
+            outline: none;
+            box-shadow: 0 0 0 4px rgba(183, 28, 28, 0.15);
+            background: white;
+        }
+
+        .login-box button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #b71c1c, #d32f2f);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 4px 15px rgba(183, 28, 28, 0.3);
+        }
+
+        .login-box button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(183, 28, 28, 0.4);
+        }
+
+        .login-box .error-msg {
+            color: #c62828;
+            font-size: 13px;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+
+        /* ========== HEADER ========== */
         .header {
             background: linear-gradient(135deg, #b71c1c, #d32f2f);
             color: white;
@@ -44,6 +138,7 @@
             width: 100%;
             max-width: 1200px;
             box-shadow: 0 8px 25px rgba(183, 28, 28, 0.4);
+            position: relative;
         }
 
         .header h1 { font-size: 26px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
@@ -62,6 +157,38 @@
             text-shadow: 0 0 10px rgba(255,255,255,0.3);
             backdrop-filter: blur(5px);
             box-shadow: 0 0 20px rgba(255,255,255,0.1);
+        }
+
+        .logout-btn {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 30px;
+            padding: 5px 16px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-weight: bold;
+        }
+
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .user-info {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 13px;
+            opacity: 0.8;
+            background: rgba(255,255,255,0.1);
+            padding: 4px 14px;
+            border-radius: 30px;
         }
 
         /* ========== STATUS BAR ========== */
@@ -245,6 +372,37 @@
             z-index: 1;
         }
 
+        .leaflet-control-fullscreen {
+            background: white !important;
+            border-radius: 4px !important;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2) !important;
+            width: 34px !important;
+            height: 34px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 20px !important;
+            cursor: pointer !important;
+            transition: 0.3s !important;
+            border: 2px solid #b71c1c !important;
+        }
+
+        .leaflet-control-fullscreen:hover {
+            background: #f5f5f5 !important;
+            transform: scale(1.05);
+        }
+
+        .leaflet-control-fullscreen svg {
+            width: 20px;
+            height: 20px;
+            fill: #b71c1c;
+        }
+
+        .leaflet-container {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
         .chart-container {
             background: white;
             border-radius: 16px;
@@ -329,6 +487,14 @@
             opacity: 0.7;
             cursor: not-allowed;
             transform: none;
+        }
+
+        .form-container button.add-btn {
+            background: linear-gradient(135deg, #d32f2f, #b71c1c);
+        }
+
+        .form-container button.add-btn:disabled {
+            background: #999;
         }
 
         .form-container .field-group {
@@ -570,6 +736,8 @@
         @media (max-width: 768px) {
             .header h1 { font-size: 20px; }
             .header .badge { font-size: 13px; padding: 4px 14px; }
+            .header .user-info { display: none; }
+            .header .logout-btn { position: static; transform: none; margin-top: 8px; display: inline-block; }
             .map-chart-container { grid-template-columns: 1fr; }
             #map { height: 300px; }
             .chart-container { padding: 10px; }
@@ -597,6 +765,8 @@
             #info { font-size: 10px; padding: 5px 10px; min-height: 28px; }
             .marquee-wrapper { height: 26px; }
             .action-btn { font-size: 10px; padding: 4px 12px; }
+            .login-box { padding: 30px 20px; }
+            .login-box h2 { font-size: 22px; }
         }
 
         @media (max-width: 480px) {
@@ -617,6 +787,9 @@
             .marquee-wrapper { height: 22px; }
             .marquee-stats { min-width: 30px; font-size: 8px; padding-right: 3px; }
             #severityChart { height: 130px !important; max-height: 130px; }
+            .login-box { padding: 20px 15px; }
+            .login-box h2 { font-size: 20px; }
+            .login-box input { padding: 10px 12px; font-size: 14px; }
         }
 
         .leaflet-tooltip {
@@ -670,124 +843,192 @@
 </head>
 <body>
 
-    <!-- ===== HEADER ===== -->
-    <div class="header">
-        <h1>🚨 نظام الإنذار المبكر للحرائق - ولاية سكيكدة</h1>
-        <p>📍 مراقبة شاملة للحرائق مع إنذار فوري وإحصائيات لحظية</p>
-        <span class="badge">✨ تصميم مجرداوي</span>
-    </div>
-
-    <!-- ===== STATUS BAR ===== -->
-    <div class="status-bar" id="statusBar">
-        🔌 جاري الاتصال بقاعدة البيانات السحابية...
-    </div>
-
-    <!-- ===== DASHBOARD ===== -->
-    <div class="dashboard" id="dashboard">
-        <div class="stat-card total">
-            <div class="stat-number" id="totalCount">0</div>
-            <div class="stat-label">📊 إجمالي الحرائق</div>
-        </div>
-        <div class="stat-card active">
-            <div class="stat-number" id="activeCount">0</div>
-            <div class="stat-label">🔥 نشطة</div>
-        </div>
-        <div class="stat-card extinguished">
-            <div class="stat-number" id="extinguishedCount">0</div>
-            <div class="stat-label">✅ مطفأة</div>
-        </div>
-        <div class="stat-card danger">
-            <div class="stat-number" id="highDangerCount">0</div>
-            <div class="stat-label">🟠 عالية + قصوى</div>
-        </div>
-        <div class="stat-card extreme">
-            <div class="stat-number" id="extremeCount">0</div>
-            <div class="stat-label">🔴 قصوى (طارئ)</div>
+    <!-- ===== شاشة تسجيل الدخول ===== -->
+    <div id="loginScreen">
+        <div class="login-box">
+            <h2>🚨 نظام  جيملة للإنذار المبكر</h2>
+            <p>سجل دخولك للوصول إلى لوحة التحكم</p>
+            <input type="text" id="loginUsername" placeholder="👤 اسم المستخدم" />
+            <input type="password" id="loginPassword" placeholder="🔑 كلمة المرور" />
+            <button onclick="login()">🚀 تسجيل الدخول</button>
+            <div class="error-msg" id="loginError"></div>
         </div>
     </div>
 
-    <!-- ===== MARQUEE ===== -->
-    <div class="marquee-container">
-        <div class="marquee-icon">🚨</div>
-        <div class="marquee-wrapper">
-            <div class="marquee-content" id="marqueeContent">
-                <span class="marquee-empty">🚫 لا توجد حرائق مسجلة</span>
+    <!-- ===== المحتوى الرئيسي ===== -->
+    <div id="mainApp" style="display:none; width:100%; max-width:1200px;">
+
+        <!-- ===== HEADER ===== -->
+        <div class="header">
+            <h1>🚨 نظام  جيملة للإنذار المبكر للحرائق - ولاية سكيكدة</h1>
+            <p>📍 مراقبة شاملة للحرائق مع إنذار فوري وإحصائيات لحظية</p>
+            <span class="badge">✨  تصميم مجرداوي أحسن</span>
+            <span class="user-info" id="userInfo">👤 admin</span>
+            <button class="logout-btn" onclick="logout()">🚪 خروج</button>
+        </div>
+
+        <!-- ===== STATUS BAR ===== -->
+        <div class="status-bar" id="statusBar">
+            🔌 جاري الاتصال بقاعدة البيانات السحابية...
+        </div>
+
+        <!-- ===== DASHBOARD ===== -->
+        <div class="dashboard" id="dashboard">
+            <div class="stat-card total">
+                <div class="stat-number" id="totalCount">0</div>
+                <div class="stat-label">📊 إجمالي الحرائق</div>
+            </div>
+            <div class="stat-card active">
+                <div class="stat-number" id="activeCount">0</div>
+                <div class="stat-label">🔥 نشطة</div>
+            </div>
+            <div class="stat-card extinguished">
+                <div class="stat-number" id="extinguishedCount">0</div>
+                <div class="stat-label">✅ مطفأة</div>
+            </div>
+            <div class="stat-card danger">
+                <div class="stat-number" id="highDangerCount">0</div>
+                <div class="stat-label">🟠 عالية + قصوى</div>
+            </div>
+            <div class="stat-card extreme">
+                <div class="stat-number" id="extremeCount">0</div>
+                <div class="stat-label">🔴 قصوى (طارئ)</div>
             </div>
         </div>
-        <div class="marquee-stats">
-            <span class="stat">📊 <span class="num" id="totalFires">0</span></span>
+
+        <!-- ===== MARQUEE ===== -->
+        <div class="marquee-container">
+            <div class="marquee-icon">🚨</div>
+            <div class="marquee-wrapper">
+                <div class="marquee-content" id="marqueeContent">
+                    <span class="marquee-empty">🚫 لا توجد حرائق مسجلة</span>
+                </div>
+            </div>
+            <div class="marquee-stats">
+                <span class="stat">📊 <span class="num" id="totalFires">0</span></span>
+            </div>
         </div>
+
+        <!-- ===== MAP & CHART ===== -->
+        <div class="map-chart-container">
+            <div id="map"></div>
+            <div class="chart-container">
+                <h3>📈 توزيع الحرائق حسب الشدة</h3>
+                <canvas id="severityChart"></canvas>
+            </div>
+        </div>
+
+        <!-- ===== FORM ===== -->
+        <div class="form-container">
+            <div class="suggestions-container" style="flex:2; min-width:90px;">
+                <input type="text" id="place" placeholder="📍 اسم المكان" autocomplete="off" />
+                <div class="suggestions-list" id="suggestionsList"></div>
+            </div>
+
+            <div class="field-group" style="flex:1.5; min-width:120px;">
+                <label>🗺️ GPS:</label>
+                <input type="text" id="lat" placeholder="خط العرض" style="flex:1; min-width:45px;" />
+                <input type="text" id="lng" placeholder="خط الطول" style="flex:1; min-width:45px;" />
+                <button type="button" class="location-btn" onclick="getCurrentLocation()" title="الحصول على الموقع الحالي">📍</button>
+            </div>
+
+            <input type="date" id="date" style="flex:1; min-width:80px;" />
+
+            <select id="severity" style="flex:1; min-width:80px;">
+                <option value="low">🟢 منخفضة</option>
+                <option value="medium">🟡 متوسطة</option>
+                <option value="high">🟠 عالية</option>
+                <option value="extreme">🔴 قصوى</option>
+            </select>
+
+            <input type="text" id="description" placeholder="📝 وصف" style="flex:1.5; min-width:80px;" />
+
+            <button onclick="addFire()" class="add-btn" style="flex:0.8; min-width:70px;">➕ إضافة</button>
+        </div>
+
+        <!-- ===== ACTION BUTTONS ===== -->
+        <div class="action-buttons">
+            <button class="action-btn export" onclick="exportData()">📥 تصدير</button>
+            <button class="action-btn import" onclick="document.getElementById('fileInput').click()">📤 استيراد</button>
+            <input type="file" id="fileInput" accept=".json" onchange="importData(event)" />
+            <button class="action-btn clear" onclick="clearAllFires()">🗑️ مسح الكل</button>
+        </div>
+
+        <!-- ===== LEGEND ===== -->
+        <div class="legend">
+            <div class="legend-item"><span class="icon">🟢</span><span class="label">منخفضة</span></div>
+            <div class="legend-item"><span class="icon">🟡</span><span class="label">متوسطة</span></div>
+            <div class="legend-item"><span class="icon">🟠</span><span class="label">عالية</span></div>
+            <div class="legend-item"><span class="icon">🔴</span><span class="label">قصوى</span></div>
+            <div class="legend-item"><span class="icon">🔵</span><span class="label">مُطفأ</span></div>
+            <div class="legend-item" style="color:#888; border-right:2px solid #ddd; padding-right:8px;">
+                <span style="font-size:14px;">⛶</span> <span>ملء الشاشة</span>
+            </div>
+            <div class="legend-item" style="color:#888;">
+                <span style="font-size:14px;">📍</span> <span>حدود الولاية</span>
+            </div>
+        </div>
+
+        <!-- ===== INFO ===== -->
+        <div id="info">💡 نظام الإنذار المبكر - سجل حريقًا جديدًا لبدء المراقبة</div>
+
     </div>
-
-    <!-- ===== MAP & CHART ===== -->
-    <div class="map-chart-container">
-        <div id="map"></div>
-        <div class="chart-container">
-            <h3>📈 توزيع الحرائق حسب الشدة</h3>
-            <canvas id="severityChart"></canvas>
-        </div>
-    </div>
-
-    <!-- ===== FORM ===== -->
-    <div class="form-container">
-        <div class="suggestions-container" style="flex:2; min-width:90px;">
-            <input type="text" id="place" placeholder="📍 اسم المكان" autocomplete="off" />
-            <div class="suggestions-list" id="suggestionsList"></div>
-        </div>
-
-        <div class="field-group" style="flex:1.5; min-width:120px;">
-            <label>🗺️ GPS:</label>
-            <input type="text" id="lat" placeholder="خط العرض" style="flex:1; min-width:45px;" />
-            <input type="text" id="lng" placeholder="خط الطول" style="flex:1; min-width:45px;" />
-            <button type="button" class="location-btn" onclick="getCurrentLocation()" title="الحصول على الموقع الحالي">📍</button>
-        </div>
-
-        <input type="date" id="date" style="flex:1; min-width:80px;" />
-
-        <select id="severity" style="flex:1; min-width:80px;">
-            <option value="low">🟢 منخفضة</option>
-            <option value="medium">🟡 متوسطة</option>
-            <option value="high">🟠 عالية</option>
-            <option value="extreme">🔴 قصوى</option>
-        </select>
-
-        <input type="text" id="description" placeholder="📝 وصف" style="flex:1.5; min-width:80px;" />
-
-        <button onclick="addFire()" style="flex:0.8; min-width:70px;">➕ إضافة</button>
-    </div>
-
-    <!-- ===== ACTION BUTTONS ===== -->
-    <div class="action-buttons">
-        <button class="action-btn export" onclick="exportData()">📥 تصدير</button>
-        <button class="action-btn import" onclick="document.getElementById('fileInput').click()">📤 استيراد</button>
-        <input type="file" id="fileInput" accept=".json" onchange="importData(event)" />
-        <button class="action-btn clear" onclick="clearAllFires()">🗑️ مسح الكل</button>
-    </div>
-
-    <!-- ===== LEGEND ===== -->
-    <div class="legend">
-        <div class="legend-item"><span class="icon">🟢</span><span class="label">منخفضة</span></div>
-        <div class="legend-item"><span class="icon">🟡</span><span class="label">متوسطة</span></div>
-        <div class="legend-item"><span class="icon">🟠</span><span class="label">عالية</span></div>
-        <div class="legend-item"><span class="icon">🔴</span><span class="label">قصوى</span></div>
-        <div class="legend-item"><span class="icon">🔵</span><span class="label">مُطفأ</span></div>
-        <div class="legend-item" style="color:#888; border-right:2px solid #ddd; padding-right:8px;">
-            <span style="font-size:14px;">💫</span> <span>وميض للحرائق الخطيرة</span>
-        </div>
-        <div class="legend-item" style="color:#888;">
-            <span style="font-size:14px;">📍</span> <span>حدود الولاية</span>
-        </div>
-    </div>
-
-    <!-- ===== INFO ===== -->
-    <div id="info">💡 نظام الإنذار المبكر - سجل حريقًا جديدًا لبدء المراقبة</div>
 
     <!-- ========================================================= -->
     <!-- ======================== JAVASCRIPT ======================= -->
     <!-- ========================================================= -->
     <script>
         // ============================================
-        // 🔥 إعداد Firebase (تم التحديث بقيم مشروعك)
+        // 0. نظام تسجيل الدخول
+        // ============================================
+        const users = {
+            'admin': 'admin123',
+            'firefighter': 'fire123',
+            'observer': 'obs123'
+        };
+
+        let currentUser = null;
+
+        function login() {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value.trim();
+            const errorEl = document.getElementById('loginError');
+
+            if (!username || !password) {
+                errorEl.textContent = '⚠️ الرجاء إدخال اسم المستخدم وكلمة المرور';
+                return;
+            }
+
+            if (users[username] && users[username] === password) {
+                currentUser = username;
+                document.getElementById('loginScreen').classList.add('hidden');
+                document.getElementById('mainApp').style.display = 'block';
+                document.getElementById('userInfo').textContent = '👤 ' + username;
+                errorEl.textContent = '';
+                
+                initializeApp();
+            } else {
+                errorEl.textContent = '❌ اسم المستخدم أو كلمة المرور غير صحيحة';
+            }
+        }
+
+        function logout() {
+            currentUser = null;
+            document.getElementById('loginScreen').classList.remove('hidden');
+            document.getElementById('mainApp').style.display = 'none';
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginError').textContent = '';
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !document.getElementById('loginScreen').classList.contains('hidden')) {
+                login();
+            }
+        });
+
+        // ============================================
+        // 🔥 إعداد Firebase
         // ============================================
         const firebaseConfig = {
             apiKey: "AIzaSyDmBtzU5r4T05PWZ3zcaYh2M9RrHwS8M",
@@ -798,30 +1039,33 @@
             appId: "1:198382849419:web:3be717cb52be8b8fb2038e"
         };
 
-        // تهيئة Firebase
         let db;
         let isFirebaseReady = false;
 
-        try {
-            firebase.initializeApp(firebaseConfig);
-            db = firebase.firestore();
-            
-            // اختبار الاتصال
-            db.collection('fires').limit(1).get()
-                .then(() => {
-                    isFirebaseReady = true;
-                    document.getElementById('statusBar').innerHTML = '✅ متصل بقاعدة البيانات السحابية <span class="connected">(مباشر)</span>';
-                    loadFiresFromCloud();
-                })
-                .catch((error) => {
-                    console.warn('⚠️ مشكلة في الاتصال بـ Firebase:', error);
-                    document.getElementById('statusBar').innerHTML = '⚠️ غير متصل بالسحابة - البيانات محلية فقط <span class="disconnected">(غير متصل)</span>';
-                    loadFiresFromLocal();
-                });
-        } catch (error) {
-            console.warn('⚠️ Firebase غير مهيأ:', error);
-            document.getElementById('statusBar').innerHTML = '⚠️ غير متصل بالسحابة - البيانات محلية فقط <span class="disconnected">(غير متصل)</span>';
-            loadFiresFromLocal();
+        function initializeApp() {
+            if (window._firebaseInitialized) return;
+            window._firebaseInitialized = true;
+
+            try {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                
+                db.collection('fires').limit(1).get()
+                    .then(() => {
+                        isFirebaseReady = true;
+                        document.getElementById('statusBar').innerHTML = '✅ متصل بقاعدة البيانات السحابية <span class="connected">(مباشر)</span>';
+                        loadFiresFromCloud();
+                    })
+                    .catch((error) => {
+                        console.warn('⚠️ مشكلة في الاتصال بـ Firebase:', error);
+                        document.getElementById('statusBar').innerHTML = '⚠️ غير متصل بالسحابة - البيانات محلية فقط <span class="disconnected">(غير متصل)</span>';
+                        loadFiresFromLocal();
+                    });
+            } catch (error) {
+                console.warn('⚠️ Firebase غير مهيأ:', error);
+                document.getElementById('statusBar').innerHTML = '⚠️ غير متصل بالسحابة - البيانات محلية فقط <span class="disconnected">(غير متصل)</span>';
+                loadFiresFromLocal();
+            }
         }
 
         // ============================================
@@ -870,12 +1114,16 @@
         ];
 
         // ============================================
-        // 2. تهيئة الخريطة
+        // 2. تهيئة الخريطة مع زر ملء الشاشة
         // ============================================
         const map = L.map('map', {
             center: [36.876, 6.909],
             zoom: 11,
-            zoomControl: true
+            zoomControl: true,
+            fullscreenControl: true,
+            fullscreenControlOptions: {
+                position: 'bottomright'
+            }
         });
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -931,15 +1179,18 @@
         const suggestionsList = document.getElementById('suggestionsList');
 
         placeInput.addEventListener('input', function() {
-            const query = this.value.trim().toLowerCase();
+            const query = this.value.trim();
             
             if (query.length === 0) {
                 suggestionsList.classList.remove('show');
                 return;
             }
 
+            // البحث في القائمة المحلية (أولوية قصوى)
             const matches = municipalities.filter(m => 
-                m.name.includes(query) || m.name.startsWith(query)
+                m.name.includes(query) || 
+                query.includes(m.name) ||
+                m.name.replace(/\s/g, '').includes(query.replace(/\s/g, ''))
             );
 
             if (matches.length === 0) {
@@ -948,17 +1199,18 @@
             }
 
             suggestionsList.innerHTML = '';
-            matches.forEach((m) => {
+            matches.slice(0, 10).forEach((m) => {
                 const div = document.createElement('div');
                 div.className = 'suggestion-item';
                 div.textContent = `🏛️ ${m.name}`;
                 div.addEventListener('click', function() {
                     placeInput.value = m.name;
+                    // تعيين الإحداثيات من القائمة مباشرة
                     document.getElementById('lat').value = m.lat.toFixed(6);
                     document.getElementById('lng').value = m.lng.toFixed(6);
                     suggestionsList.classList.remove('show');
                     map.flyTo([m.lat, m.lng], 13, { duration: 1 });
-                    updateInfo(`📍 تم اختيار "${m.name}"`, 'success');
+                    updateInfo(`📍 تم اختيار "${m.name}" - الإحداثيات: ${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}`, 'success');
                 });
                 suggestionsList.appendChild(div);
             });
@@ -1050,7 +1302,7 @@
         let chartInstance = null;
 
         // ============================================
-        // 8. تحميل البيانات من Firebase (مباشر)
+        // 8. تحميل البيانات
         // ============================================
         function loadFiresFromCloud() {
             if (!isFirebaseReady) return;
@@ -1071,9 +1323,6 @@
                 });
         }
 
-        // ============================================
-        // 9. تحميل البيانات من localStorage (نسخ احتياطي)
-        // ============================================
         function loadFiresFromLocal() {
             const saved = localStorage.getItem('skikdaFires');
             if (saved) {
@@ -1087,11 +1336,7 @@
             }
         }
 
-        // ============================================
-        // 10. تحديث الخريطة والإحصائيات
-        // ============================================
         function updateFires(newFires) {
-            // إزالة العلامات القديمة
             Object.keys(fireMarkers).forEach(id => {
                 map.removeLayer(fireMarkers[id]);
                 if (pulseCircles[id]) {
@@ -1106,18 +1351,12 @@
             updateAll();
         }
 
-        // ============================================
-        // 11. تحديث كل شيء
-        // ============================================
         function updateAll() {
             updateDashboard();
             updateMarquee();
             updateChart();
         }
 
-        // ============================================
-        // 12. تحديث لوحة التحكم
-        // ============================================
         function updateDashboard() {
             const total = fires.length;
             const active = fires.filter(f => !f.extinguished).length;
@@ -1137,9 +1376,6 @@
             }
         }
 
-        // ============================================
-        // 13. تحديث الشريط المتحرك
-        // ============================================
         function updateMarquee() {
             const content = document.getElementById('marqueeContent');
             const totalSpan = document.getElementById('totalFires');
@@ -1180,9 +1416,6 @@
             content.style.animation = 'marqueeAnim 20s linear infinite';
         }
 
-        // ============================================
-        // 14. تحديث الرسم البياني
-        // ============================================
         function updateChart() {
             const ctx = document.getElementById('severityChart').getContext('2d');
             
@@ -1223,9 +1456,14 @@
         }
 
         // ============================================
-        // 15. دالة إضافة حريق (إلى Firebase)
+        // 9. دالة إضافة حريق - الحل الجذري
         // ============================================
         function addFire() {
+            if (!currentUser) {
+                updateInfo('⚠️ الرجاء تسجيل الدخول أولاً', 'error');
+                return;
+            }
+
             const place = document.getElementById('place').value.trim();
             const latInput = document.getElementById('lat').value.trim();
             const lngInput = document.getElementById('lng').value.trim();
@@ -1238,10 +1476,11 @@
                 return;
             }
 
-            const btn = document.querySelector('.form-container button');
+            const btn = document.querySelector('.form-container .add-btn');
             btn.disabled = true;
             btn.textContent = '⏳ جاري...';
 
+            // ===== الحل الجذري: البحث في القائمة المحلية أولاً =====
             const processFire = (lat, lng, placeName) => {
                 const fire = {
                     place: placeName || `نقطة (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
@@ -1251,7 +1490,8 @@
                     lat: lat,
                     lng: lng,
                     addedAt: new Date().toISOString(),
-                    extinguished: false
+                    extinguished: false,
+                    addedBy: currentUser
                 };
 
                 if (isFirebaseReady) {
@@ -1262,21 +1502,22 @@
                             updateInfo(`✅ تم تسجيل حريق في "${fire.place}" | الشدة: ${severityLabel}`, 'success');
                             sendAlert(fire);
                             btn.disabled = false;
-                            btn.textContent = '➕ إضافة حريق';
+                            btn.textContent = '➕ إضافة';
                         })
                         .catch((error) => {
                             console.error('❌ خطأ في الحفظ:', error);
                             saveFireLocal(fire);
                             btn.disabled = false;
-                            btn.textContent = '➕ إضافة حريق';
+                            btn.textContent = '➕ إضافة';
                         });
                 } else {
                     saveFireLocal(fire);
                     btn.disabled = false;
-                    btn.textContent = '➕ إضافة حريق';
+                    btn.textContent = '➕ إضافة';
                 }
             };
 
+            // ===== إذا كانت الإحداثيات موجودة، استخدمها مباشرة =====
             if (latInput && lngInput) {
                 const lat = parseFloat(latInput);
                 const lng = parseFloat(lngInput);
@@ -1284,7 +1525,7 @@
                 if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
                     updateInfo('⚠️ إحداثيات غير صالحة', 'error');
                     btn.disabled = false;
-                    btn.textContent = '➕ إضافة حريق';
+                    btn.textContent = '➕ إضافة';
                     return;
                 }
 
@@ -1292,16 +1533,40 @@
                 return;
             }
 
+            // ===== البحث في القائمة المحلية أولاً (لأي اسم، عربي أو فرنسي) =====
             if (place) {
-                const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place + '، سكيكدة، الجزائر')}&limit=1`;
+                // محاولة العثور على تطابق تام
+                let foundMunicipality = municipalities.find(m => 
+                    m.name === place || 
+                    m.name.includes(place) || 
+                    place.includes(m.name)
+                );
+
+                // إذا لم يتم العثور، محاولة البحث بإزالة المسافات
+                if (!foundMunicipality) {
+                    const cleanPlace = place.replace(/\s/g, '');
+                    foundMunicipality = municipalities.find(m => 
+                        m.name.replace(/\s/g, '').includes(cleanPlace) || 
+                        cleanPlace.includes(m.name.replace(/\s/g, ''))
+                    );
+                }
+
+                if (foundMunicipality) {
+                    // استخدام الإحداثيات من القائمة مباشرة
+                    processFire(foundMunicipality.lat, foundMunicipality.lng, foundMunicipality.name);
+                    return;
+                }
+
+                // ===== إذا لم يتم العثور في القائمة، استخدم البحث الخارجي =====
+                const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place + '، ولاية سكيكدة، الجزائر')}&limit=1`;
 
                 fetch(searchUrl)
                     .then(response => response.json())
                     .then(data => {
                         if (data.length === 0) {
-                            updateInfo(`❌ لم يتم العثور على "${place}"`, 'error');
+                            updateInfo(`❌ لم يتم العثور على "${place}" في سكيكدة`, 'error');
                             btn.disabled = false;
-                            btn.textContent = '➕ إضافة حريق';
+                            btn.textContent = '➕ إضافة';
                             return;
                         }
 
@@ -1313,13 +1578,13 @@
                         console.error('خطأ:', error);
                         updateInfo('⚠️ حدث خطأ في الاتصال', 'error');
                         btn.disabled = false;
-                        btn.textContent = '➕ إضافة حريق';
+                        btn.textContent = '➕ إضافة';
                     });
             }
         }
 
         // ============================================
-        // 16. حفظ محلي (نسخة احتياطية)
+        // 10. دوال أخرى (نفس الكود السابق)
         // ============================================
         function saveFireLocal(fire) {
             let localFires = [];
@@ -1339,9 +1604,6 @@
             sendAlert(fire);
         }
 
-        // ============================================
-        // 17. نظام الإنذار المبكر
-        // ============================================
         function sendAlert(fire) {
             const severityLabel = severityConfig[fire.severity].label;
             const isHighRisk = fire.severity === 'high' || fire.severity === 'extreme';
@@ -1382,7 +1644,7 @@
         }
 
         // ============================================
-        // 18. دالة عرض حريق مع وميض
+        // 11. عرض الحريق على الخريطة
         // ============================================
         function addFireToMap(fire, animate = true) {
             const config = fire.extinguished ? 
@@ -1410,6 +1672,28 @@
             const isDangerous = !fire.extinguished && (fire.severity === 'high' || fire.severity === 'extreme');
             const isExtreme = !fire.extinguished && fire.severity === 'extreme';
 
+            let actionButtons = '';
+            if (!fire.extinguished) {
+                actionButtons = `
+                    <div class="popup-actions">
+                        <button class="extinguish-btn" onclick="extinguishFire('${fire.id}')">
+                            🧯 إطفاء
+                        </button>
+                        <button class="delete-btn" onclick="deleteFire('${fire.id}')">
+                            🗑️ حذف
+                        </button>
+                    </div>
+                `;
+            } else {
+                actionButtons = `
+                    <div class="popup-actions">
+                        <button class="delete-btn" onclick="deleteFire('${fire.id}')" style="width:100%;">
+                            🗑️ حذف
+                        </button>
+                    </div>
+                `;
+            }
+
             const popupContent = `
                 <div class="popup-content">
                     <strong>📍 المكان:</strong> ${fire.place}<br>
@@ -1423,23 +1707,11 @@
                     ${!fire.extinguished ? `<span class="duration">${durationText}</span><br>` : ''}
                     <strong>📝 الوصف:</strong> ${fire.description || 'لا يوجد'}<br>
                     <small style="color:#888;">🕒 ${new Date(fire.addedAt || fire.id).toLocaleString('ar')}</small>
-                    ${!fire.extinguished ? `
-                        <br><br>
-                        <button class="extinguish-btn" onclick="extinguishFire('${fire.id}')">
-                            🧯 تم إطفاء الحريق
-                        </button>
-                    ` : `
-                        <br>
-                        <div class="extinguished-badge">✅ تم إطفاء هذا الحريق</div>
-                    `}
-                    ${isExtreme ? `
-                        <br>
-                        <div class="warning-badge">🚨 حالة طارئة - تدخل فوري</div>
-                    ` : ''}
-                    ${isDangerous && !isExtreme ? `
-                        <br>
-                        <div class="warning-badge" style="background:#e65100; color:#fff8e1; animation: blinkWarning 1.5s infinite;">⚠️ خطر مرتفع - مراقبة مستمرة</div>
-                    ` : ''}
+                    ${fire.addedBy ? `<small style="color:#666;">👤 ${fire.addedBy}</small><br>` : ''}
+                    ${fire.extinguished ? `<div class="extinguished-badge">✅ تم إطفاء هذا الحريق</div>` : ''}
+                    ${isExtreme ? `<div class="warning-badge">🚨 حالة طارئة - تدخل فوري</div>` : ''}
+                    ${isDangerous && !isExtreme ? `<div class="warning-badge" style="background:#e65100; color:#fff8e1; animation: blinkWarning 1.5s infinite;">⚠️ خطر مرتفع - مراقبة مستمرة</div>` : ''}
+                    ${actionButtons}
                 </div>
             `;
 
@@ -1502,9 +1774,14 @@
         }
 
         // ============================================
-        // 19. إطفاء الحريق (في Firebase)
+        // 12. إطفاء الحريق
         // ============================================
         function extinguishFire(fireId) {
+            if (!currentUser) {
+                updateInfo('⚠️ الرجاء تسجيل الدخول أولاً', 'error');
+                return;
+            }
+
             if (!isFirebaseReady) {
                 updateInfo('⚠️ غير متصل بالسحابة، لا يمكن الإطفاء', 'error');
                 return;
@@ -1512,10 +1789,11 @@
 
             db.collection('fires').doc(fireId).update({
                 extinguished: true,
-                extinguishedAt: new Date().toISOString()
+                extinguishedAt: new Date().toISOString(),
+                extinguishedBy: currentUser
             })
             .then(() => {
-                updateInfo(`🧯 تم إطفاء الحريق بنجاح`, 'success');
+                updateInfo(`🧯 تم إطفاء الحريق بواسطة ${currentUser}`, 'success');
                 map.closePopup();
             })
             .catch((error) => {
@@ -1525,9 +1803,43 @@
         }
 
         // ============================================
-        // 20. استيراد البيانات
+        // 13. حذف الحريق
+        // ============================================
+        function deleteFire(fireId) {
+            if (!currentUser) {
+                updateInfo('⚠️ الرجاء تسجيل الدخول أولاً', 'error');
+                return;
+            }
+
+            if (!isFirebaseReady) {
+                updateInfo('⚠️ غير متصل بالسحابة، لا يمكن الحذف', 'error');
+                return;
+            }
+
+            if (!confirm('⚠️ هل أنت متأكد من حذف هذا الحريق نهائياً؟')) {
+                return;
+            }
+
+            db.collection('fires').doc(fireId).delete()
+                .then(() => {
+                    updateInfo(`🗑️ تم حذف الحريق بنجاح`, 'success');
+                    map.closePopup();
+                })
+                .catch((error) => {
+                    console.error('❌ خطأ في الحذف:', error);
+                    updateInfo('⚠️ حدث خطأ أثناء الحذف', 'error');
+                });
+        }
+
+        // ============================================
+        // 14. استيراد وتصدير البيانات
         // ============================================
         function importData(event) {
+            if (!currentUser) {
+                updateInfo('⚠️ الرجاء تسجيل الدخول أولاً', 'error');
+                return;
+            }
+
             const file = event.target.files[0];
             if (!file) return;
 
@@ -1549,6 +1861,7 @@
                         data.fires.forEach((fire) => {
                             if (!fire.addedAt) fire.addedAt = new Date().toISOString();
                             if (fire.extinguished === undefined) fire.extinguished = false;
+                            fire.addedBy = fire.addedBy || 'imported';
                             db.collection('fires').add(fire);
                         });
                         updateInfo(`📤 جاري استيراد ${data.fires.length} حريق إلى السحابة...`, 'success');
@@ -1563,6 +1876,7 @@
                         data.fires.forEach((fire) => {
                             if (!fire.addedAt) fire.addedAt = new Date().toISOString();
                             if (fire.extinguished === undefined) fire.extinguished = false;
+                            fire.addedBy = fire.addedBy || 'imported';
                             localFires.push(fire);
                         });
                         localStorage.setItem('skikdaFires', JSON.stringify(localFires));
@@ -1578,9 +1892,6 @@
             event.target.value = '';
         }
 
-        // ============================================
-        // 21. تصدير البيانات
-        // ============================================
         function exportData() {
             if (fires.length === 0) {
                 updateInfo('⚠️ لا توجد بيانات للتصدير', 'error');
@@ -1589,6 +1900,7 @@
 
             const data = {
                 exportedAt: new Date().toISOString(),
+                exportedBy: currentUser || 'unknown',
                 totalFires: fires.length,
                 activeFires: fires.filter(f => !f.extinguished).length,
                 extinguishedFires: fires.filter(f => f.extinguished).length,
@@ -1608,7 +1920,7 @@
         }
 
         // ============================================
-        // 22. مسح جميع الحرائق
+        // 15. مسح جميع الحرائق
         // ============================================
         function clearAllFires() {
             if (fires.length === 0) {
@@ -1616,8 +1928,27 @@
                 return;
             }
 
-            if (!confirm(`⚠️ هل أنت متأكد من مسح جميع الحرائق (${fires.length})؟`)) return;
-            if (!confirm('تأكيد نهائي: سيتم حذف جميع البيانات نهائيًا!')) return;
+            const password = prompt('🔐 أدخل الرقم السري لتأكيد مسح جميع الحرائق:');
+            
+            if (password === null) {
+                updateInfo('❌ تم إلغاء عملية المسح', 'error');
+                return;
+            }
+
+            if (password !== '1234') {
+                updateInfo('❌ الرقم السري غير صحيح - تم إلغاء عملية المسح', 'error');
+                return;
+            }
+
+            if (!confirm(`⚠️ هل أنت متأكد من مسح جميع الحرائق (${fires.length})؟`)) {
+                updateInfo('❌ تم إلغاء عملية المسح', 'error');
+                return;
+            }
+            
+            if (!confirm('تأكيد نهائي: سيتم حذف جميع البيانات نهائيًا!')) {
+                updateInfo('❌ تم إلغاء عملية المسح', 'error');
+                return;
+            }
 
             if (isFirebaseReady) {
                 db.collection('fires').get()
@@ -1652,7 +1983,7 @@
         }
 
         // ============================================
-        // 23. تحديث المعلومات
+        // 16. دوال مساعدة
         // ============================================
         function updateInfo(message, type = '') {
             const info = document.getElementById('info');
@@ -1673,7 +2004,7 @@
         }
 
         // ============================================
-        // 24. حرائق تجريبية
+        // 17. حرائق تجريبية
         // ============================================
         function loadSampleFires() {
             const samples = [
@@ -1688,7 +2019,7 @@
 
             if (isFirebaseReady) {
                 samples.forEach((sample) => {
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sample.place + '، سكيكدة، الجزائر')}&limit=1`)
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sample.place + '، ولاية سكيكدة، الجزائر')}&limit=1`)
                         .then(res => res.json())
                         .then(data => {
                             if (data.length > 0) {
@@ -1700,7 +2031,8 @@
                                     lat: parseFloat(data[0].lat),
                                     lng: parseFloat(data[0].lon),
                                     addedAt: new Date().toISOString(),
-                                    extinguished: false
+                                    extinguished: false,
+                                    addedBy: 'system'
                                 };
                                 db.collection('fires').add(fire);
                             }
@@ -1717,7 +2049,7 @@
                     } catch (e) {}
                 }
                 samples.forEach((sample) => {
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sample.place + '، سكيكدة، الجزائر')}&limit=1`)
+                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sample.place + '، ولاية سكيكدة، الجزائر')}&limit=1`)
                         .then(res => res.json())
                         .then(data => {
                             if (data.length > 0) {
@@ -1730,7 +2062,8 @@
                                     lat: parseFloat(data[0].lat),
                                     lng: parseFloat(data[0].lon),
                                     addedAt: new Date().toISOString(),
-                                    extinguished: false
+                                    extinguished: false,
+                                    addedBy: 'system'
                                 };
                                 localFires.push(fire);
                                 localStorage.setItem('skikdaFires', JSON.stringify(localFires));
@@ -1744,7 +2077,7 @@
         }
 
         // ============================================
-        // 25. تشغيل التطبيق
+        // 18. تشغيل التطبيق
         // ============================================
         document.getElementById('date').value = new Date().toISOString().split('T')[0];
 
@@ -1764,7 +2097,7 @@
         }
 
         setTimeout(() => {
-            if (fires.length === 0) {
+            if (fires.length === 0 && isFirebaseReady) {
                 loadSampleFires();
             }
         }, 3000);
@@ -1775,7 +2108,6 @@
 
         console.log('🚨 نظام الإنذار المبكر للحرائق - سكيكدة');
         console.log(`🏛️ عدد البلديات: ${municipalities.length}`);
-        console.log(`📊 عدد الحرائق: ${fires.length}`);
         console.log('💡 اكتب getStats() للإحصائيات');
 
         window.getStats = function() {
@@ -1801,6 +2133,5 @@
 
         console.log('✅ النظام جاهز للعمل!');
     </script>
-
 </body>
 </html>
