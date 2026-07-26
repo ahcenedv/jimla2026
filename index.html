@@ -839,6 +839,158 @@
         .suggestions-list .suggestion-item:last-child { border-bottom: none; }
 
         #fileInput { display: none; }
+
+        /* ========== تحذير ثابت لا يختفي ========== */
+        .alert-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 10000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            animation: fadeInOverlay 0.5s ease;
+        }
+
+        .alert-overlay.active {
+            display: flex;
+        }
+
+        @keyframes fadeInOverlay {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .alert-box {
+            background: linear-gradient(135deg, #1a1a2e, #2d1b1b);
+            border: 3px solid #ff1744;
+            border-radius: 24px;
+            padding: 30px 40px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 60px rgba(255, 23, 68, 0.5);
+            animation: shakeAlert 0.6s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .alert-box::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,23,68,0.1) 0%, transparent 70%);
+            animation: rotateGlow 4s linear infinite;
+        }
+
+        @keyframes rotateGlow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @keyframes shakeAlert {
+            0%, 100% { transform: translateX(0); }
+            20% { transform: translateX(-15px); }
+            40% { transform: translateX(15px); }
+            60% { transform: translateX(-10px); }
+            80% { transform: translateX(10px); }
+        }
+
+        .alert-box .alert-icon {
+            font-size: 60px;
+            text-align: center;
+            margin-bottom: 10px;
+            animation: pulseIcon 0.8s ease-in-out infinite;
+        }
+
+        @keyframes pulseIcon {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .alert-box .alert-title {
+            color: #ff1744;
+            font-size: 28px;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(255,23,68,0.5);
+        }
+
+        .alert-box .alert-body {
+            color: #e0e0e0;
+            font-size: 16px;
+            text-align: center;
+            line-height: 1.8;
+            position: relative;
+            z-index: 1;
+        }
+
+        .alert-box .alert-body strong {
+            color: #ffab91;
+        }
+
+        .alert-box .alert-body .severity-tag {
+            display: inline-block;
+            padding: 3px 14px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .alert-box .alert-body .severity-tag.extreme {
+            background: #b71c1c;
+            color: #ffcdd2;
+        }
+        .alert-box .alert-body .severity-tag.high {
+            background: #e65100;
+            color: #fff8e1;
+        }
+        .alert-box .alert-body .severity-tag.medium {
+            background: #f57f17;
+            color: #fff8e1;
+        }
+        .alert-box .alert-body .severity-tag.low {
+            background: #1b5e20;
+            color: #a5d6a7;
+        }
+
+        .alert-box .alert-close-btn {
+            background: #ff1744;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: all 0.3s;
+            width: 100%;
+            position: relative;
+            z-index: 1;
+        }
+
+        .alert-box .alert-close-btn:hover {
+            background: #d50000;
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(255,23,68,0.4);
+        }
+
+        .alert-box .alert-time {
+            color: #888;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 8px;
+            position: relative;
+            z-index: 1;
+        }
     </style>
 </head>
 <body>
@@ -972,6 +1124,22 @@
         <!-- ===== INFO ===== -->
         <div id="info">💡 نظام الإنذار المبكر - سجل حريقًا جديدًا لبدء المراقبة</div>
 
+    </div>
+
+    <!-- ===== نافذة التحذير الثابتة (لا تختفي إلا بالضغط على زر الإغلاق) ===== -->
+    <div class="alert-overlay" id="alertOverlay">
+        <div class="alert-box">
+            <div class="alert-icon">🚨</div>
+            <div class="alert-title">❗ إنذار حريق</div>
+            <div class="alert-body" id="alertBody">
+                <strong id="alertPlace">المكان</strong><br>
+                <span id="alertSeverityTag" class="severity-tag extreme">🔥 قصوى</span><br>
+                <span id="alertDescription">وصف الحريق</span><br>
+                <span style="color:#888; font-size:13px;" id="alertTime">🕒 منذ قليل</span>
+            </div>
+            <button class="alert-close-btn" onclick="closeAlert()">✅ تم الاستلام</button>
+            <div class="alert-time">🔴 هذا الإشعار لن يختفي إلا بعد إغلاقه يدوياً</div>
+        </div>
     </div>
 
     <!-- ========================================================= -->
@@ -1114,7 +1282,7 @@
         ];
 
         // ============================================
-        // 2. تهيئة الخريطة مع زر ملء الشاشة
+        // 2. تهيئة الخريطة
         // ============================================
         const map = L.map('map', {
             center: [36.876, 6.909],
@@ -1186,7 +1354,6 @@
                 return;
             }
 
-            // البحث في القائمة المحلية (أولوية قصوى)
             const matches = municipalities.filter(m => 
                 m.name.includes(query) || 
                 query.includes(m.name) ||
@@ -1205,7 +1372,6 @@
                 div.textContent = `🏛️ ${m.name}`;
                 div.addEventListener('click', function() {
                     placeInput.value = m.name;
-                    // تعيين الإحداثيات من القائمة مباشرة
                     document.getElementById('lat').value = m.lat.toFixed(6);
                     document.getElementById('lng').value = m.lng.toFixed(6);
                     suggestionsList.classList.remove('show');
@@ -1456,7 +1622,7 @@
         }
 
         // ============================================
-        // 9. دالة إضافة حريق - الحل الجذري
+        // 9. دالة إضافة حريق + التحذير الصوتي والثابت
         // ============================================
         function addFire() {
             if (!currentUser) {
@@ -1480,7 +1646,6 @@
             btn.disabled = true;
             btn.textContent = '⏳ جاري...';
 
-            // ===== الحل الجذري: البحث في القائمة المحلية أولاً =====
             const processFire = (lat, lng, placeName) => {
                 const fire = {
                     place: placeName || `نقطة (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
@@ -1494,13 +1659,18 @@
                     addedBy: currentUser
                 };
 
+                // 🔔 تشغيل صوت تحذير فوري
+                playAlertSound(severity);
+
+                // 🚨 إظهار نافذة تحذير ثابتة (لا تختفي إلا يدوياً)
+                showPersistentAlert(fire);
+
                 if (isFirebaseReady) {
                     db.collection('fires').add(fire)
                         .then(() => {
                             clearForm();
                             const severityLabel = severityConfig[severity].label;
                             updateInfo(`✅ تم تسجيل حريق في "${fire.place}" | الشدة: ${severityLabel}`, 'success');
-                            sendAlert(fire);
                             btn.disabled = false;
                             btn.textContent = '➕ إضافة';
                         })
@@ -1517,7 +1687,6 @@
                 }
             };
 
-            // ===== إذا كانت الإحداثيات موجودة، استخدمها مباشرة =====
             if (latInput && lngInput) {
                 const lat = parseFloat(latInput);
                 const lng = parseFloat(lngInput);
@@ -1533,16 +1702,13 @@
                 return;
             }
 
-            // ===== البحث في القائمة المحلية أولاً (لأي اسم، عربي أو فرنسي) =====
             if (place) {
-                // محاولة العثور على تطابق تام
                 let foundMunicipality = municipalities.find(m => 
                     m.name === place || 
                     m.name.includes(place) || 
                     place.includes(m.name)
                 );
 
-                // إذا لم يتم العثور، محاولة البحث بإزالة المسافات
                 if (!foundMunicipality) {
                     const cleanPlace = place.replace(/\s/g, '');
                     foundMunicipality = municipalities.find(m => 
@@ -1552,12 +1718,10 @@
                 }
 
                 if (foundMunicipality) {
-                    // استخدام الإحداثيات من القائمة مباشرة
                     processFire(foundMunicipality.lat, foundMunicipality.lng, foundMunicipality.name);
                     return;
                 }
 
-                // ===== إذا لم يتم العثور في القائمة، استخدم البحث الخارجي =====
                 const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place + '، ولاية سكيكدة، الجزائر')}&limit=1`;
 
                 fetch(searchUrl)
@@ -1584,7 +1748,106 @@
         }
 
         // ============================================
-        // 10. دوال أخرى (نفس الكود السابق)
+        // 🎵 تشغيل صوت التحذير حسب شدة الحريق
+        // ============================================
+        function playAlertSound(severity) {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // تكرار الصوت عدة مرات حسب شدة الخطر
+                const repeatCount = severity === 'extreme' ? 6 : 
+                                   severity === 'high' ? 4 : 
+                                   severity === 'medium' ? 2 : 1;
+                
+                let count = 0;
+                const interval = setInterval(() => {
+                    const oscillator = audioCtx.createOscillator();
+                    const gainNode = audioCtx.createGain();
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioCtx.destination);
+                    
+                    // تردد مختلف حسب الشدة
+                    if (severity === 'extreme') {
+                        oscillator.frequency.value = 800;
+                        gainNode.gain.value = 0.15;
+                        oscillator.type = 'sawtooth';
+                    } else if (severity === 'high') {
+                        oscillator.frequency.value = 600;
+                        gainNode.gain.value = 0.12;
+                        oscillator.type = 'square';
+                    } else {
+                        oscillator.frequency.value = 400;
+                        gainNode.gain.value = 0.08;
+                        oscillator.type = 'sine';
+                    }
+                    
+                    oscillator.start();
+                    setTimeout(() => oscillator.stop(), 300);
+                    
+                    count++;
+                    if (count >= repeatCount) {
+                        clearInterval(interval);
+                    }
+                }, 500);
+                
+                // تأخير إضافي للحالات القصوى
+                if (severity === 'extreme') {
+                    setTimeout(() => {
+                        const osc2 = audioCtx.createOscillator();
+                        const gain2 = audioCtx.createGain();
+                        osc2.connect(gain2);
+                        gain2.connect(audioCtx.destination);
+                        osc2.frequency.value = 1000;
+                        gain2.gain.value = 0.1;
+                        osc2.type = 'square';
+                        osc2.start();
+                        setTimeout(() => osc2.stop(), 600);
+                    }, 3000);
+                }
+            } catch (e) {
+                console.log('⚠️ تعذر تشغيل الصوت:', e);
+            }
+        }
+
+        // ============================================
+        // 🚨 إظهار نافذة تحذير ثابتة (لا تختفي إلا يدوياً)
+        // ============================================
+        function showPersistentAlert(fire) {
+            const overlay = document.getElementById('alertOverlay');
+            const severityLabel = severityConfig[fire.severity]?.label || 'غير معروف';
+            const severityEmoji = severityConfig[fire.severity]?.emoji || '🔥';
+            
+            document.getElementById('alertPlace').textContent = `📍 ${fire.place}`;
+            document.getElementById('alertDescription').textContent = `📝 ${fire.description || 'لا يوجد وصف'}`;
+            
+            const tag = document.getElementById('alertSeverityTag');
+            tag.textContent = `${severityEmoji} ${severityLabel}`;
+            tag.className = `severity-tag ${fire.severity}`;
+            
+            const now = new Date();
+            document.getElementById('alertTime').textContent = `🕒 ${now.toLocaleString('ar')}`;
+            
+            overlay.classList.add('active');
+            
+            // اهتزاز الشاشة للحالات القصوى
+            if (fire.severity === 'extreme') {
+                document.body.style.animation = 'shakeAlert 0.5s ease';
+                setTimeout(() => {
+                    document.body.style.animation = '';
+                }, 600);
+            }
+        }
+
+        // ============================================
+        // ❌ إغلاق نافذة التحذير
+        // ============================================
+        function closeAlert() {
+            document.getElementById('alertOverlay').classList.remove('active');
+            document.body.style.animation = '';
+        }
+
+        // ============================================
+        // 10. دوال أخرى
         // ============================================
         function saveFireLocal(fire) {
             let localFires = [];
@@ -1601,46 +1864,6 @@
             
             const severityLabel = severityConfig[fire.severity].label;
             updateInfo(`✅ تم تسجيل حريق محلياً في "${fire.place}" | الشدة: ${severityLabel}`, 'success');
-            sendAlert(fire);
-        }
-
-        function sendAlert(fire) {
-            const severityLabel = severityConfig[fire.severity].label;
-            const isHighRisk = fire.severity === 'high' || fire.severity === 'extreme';
-            
-            let alertMsg = `🚨 إنذار! حريق جديد في "${fire.place}" - الشدة: ${severityLabel}`;
-            if (isHighRisk) {
-                alertMsg += ` ⚠️ خطر مرتفع!`;
-            }
-            updateInfo(alertMsg, 'warning');
-
-            if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('🚨 نظام الإنذار المبكر للحرائق', {
-                    body: `حريق جديد في ${fire.place}\nالشدة: ${severityLabel}\n${isHighRisk ? '⚠️ خطر مرتفع - تدخل فوري!' : ''}`,
-                    icon: '🔥'
-                });
-            } else if ('Notification' in window && Notification.permission !== 'denied') {
-                Notification.requestPermission();
-            }
-
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                oscillator.frequency.value = isHighRisk ? 800 : 500;
-                oscillator.type = 'square';
-                gainNode.gain.value = 0.08;
-                oscillator.start();
-                setTimeout(() => oscillator.stop(), isHighRisk ? 800 : 400);
-            } catch (e) {}
-
-            if (fire.severity === 'extreme') {
-                setTimeout(() => {
-                    updateInfo(`🚨🚨 تنبيه عاجل! حريق قصوى في "${fire.place}" - استنفار فوري!`, 'warning');
-                }, 1000);
-            }
         }
 
         // ============================================
@@ -1679,7 +1902,7 @@
                         <button class="extinguish-btn" onclick="extinguishFire('${fire.id}')">
                             🧯 إطفاء
                         </button>
-                        <button class="delete-btn" onclick="deleteFire('${fire.id}')">
+                        <button class="delete-btn" onclick="deleteFire('${fire.id}')" style="background:#c62828; color:white; border:none; border-radius:30px; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:bold; margin-top:5px; width:100%; display:block; text-align:center;">
                             🗑️ حذف
                         </button>
                     </div>
@@ -1687,7 +1910,7 @@
             } else {
                 actionButtons = `
                     <div class="popup-actions">
-                        <button class="delete-btn" onclick="deleteFire('${fire.id}')" style="width:100%;">
+                        <button class="delete-btn" onclick="deleteFire('${fire.id}')" style="background:#c62828; color:white; border:none; border-radius:30px; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:bold; margin-top:5px; width:100%; display:block; text-align:center;">
                             🗑️ حذف
                         </button>
                     </div>
