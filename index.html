@@ -840,7 +840,7 @@
 
         #fileInput { display: none; }
 
-        /* ========== تحذير ثابت لا يختفي ========== */
+        /* ========== تحذير ثابت ========== */
         .alert-overlay {
             position: fixed;
             top: 0;
@@ -998,7 +998,7 @@
     <!-- ===== شاشة تسجيل الدخول ===== -->
     <div id="loginScreen">
         <div class="login-box">
-            <h2>🚨 نظام  جيملة للإنذار المبكر</h2>
+            <h2>🚨 نظام جيملة للإنذار المبكر</h2>
             <p>سجل دخولك للوصول إلى لوحة التحكم</p>
             <input type="text" id="loginUsername" placeholder="👤 اسم المستخدم" />
             <input type="password" id="loginPassword" placeholder="🔑 كلمة المرور" />
@@ -1012,9 +1012,9 @@
 
         <!-- ===== HEADER ===== -->
         <div class="header">
-            <h1>🚨 نظام  جيملة للإنذار المبكر للحرائق - ولاية سكيكدة</h1>
+            <h1>🚨 نظام جيملة للإنذار المبكر للحرائق - ولاية سكيكدة</h1>
             <p>📍 مراقبة شاملة للحرائق مع إنذار فوري وإحصائيات لحظية</p>
-            <span class="badge">✨  تصميم مجرداوي أحسن</span>
+            <span class="badge">✨ تصميم مجرداوي أحسن</span>
             <span class="user-info" id="userInfo">👤 admin</span>
             <button class="logout-btn" onclick="logout()">🚪 خروج</button>
         </div>
@@ -1126,11 +1126,11 @@
 
     </div>
 
-    <!-- ===== نافذة التحذير الثابتة (لا تختفي إلا بالضغط على زر الإغلاق) ===== -->
+    <!-- ===== نافذة التحذير الثابتة ===== -->
     <div class="alert-overlay" id="alertOverlay">
         <div class="alert-box">
             <div class="alert-icon">🚨</div>
-            <div class="alert-title">❗ إنذار حريق</div>
+            <div class="alert-title">❗ إنذار حريق جديد</div>
             <div class="alert-body" id="alertBody">
                 <strong id="alertPlace">المكان</strong><br>
                 <span id="alertSeverityTag" class="severity-tag extreme">🔥 قصوى</span><br>
@@ -1138,7 +1138,7 @@
                 <span style="color:#888; font-size:13px;" id="alertTime">🕒 منذ قليل</span>
             </div>
             <button class="alert-close-btn" onclick="closeAlert()">✅ تم الاستلام</button>
-            <div class="alert-time">🔴 هذا الإشعار لن يختفي إلا بعد إغلاقه يدوياً</div>
+            <div class="alert-time">🔴 هذا الإشعار يظهر لكل المستخدمين عند تسجيل حريق جديد</div>
         </div>
     </div>
 
@@ -1209,6 +1209,9 @@
 
         let db;
         let isFirebaseReady = false;
+
+        // متغير لتتبع آخر حريق تم التنبيه له (لمنع التكرار)
+        let lastAlertedFireId = null;
 
         function initializeApp() {
             if (window._firebaseInitialized) return;
@@ -1468,7 +1471,7 @@
         let chartInstance = null;
 
         // ============================================
-        // 8. تحميل البيانات
+        // 8. تحميل البيانات من Firebase + التحذير للجميع
         // ============================================
         function loadFiresFromCloud() {
             if (!isFirebaseReady) return;
@@ -1483,12 +1486,29 @@
                         newFires.push(data);
                     });
                     
+                    // 🔔 التحقق من وجود حرائق جديدة (لجميع المستخدمين)
+                    if (fires.length > 0 && newFires.length > fires.length) {
+                        // العثور على الحريق الجديد (الأحدث)
+                        const newFire = newFires[0];
+                        // التأكد من أنه لم يتم التنبيه له من قبل
+                        if (newFire.id !== lastAlertedFireId) {
+                            lastAlertedFireId = newFire.id;
+                            // تشغيل الصوت للجميع
+                            playAlertSound(newFire.severity);
+                            // إظهار نافذة التحذير للجميع
+                            showPersistentAlert(newFire);
+                        }
+                    }
+                    
                     updateFires(newFires);
                 }, (error) => {
                     console.error('❌ خطأ في الاستماع للبيانات:', error);
                 });
         }
 
+        // ============================================
+        // 9. تحميل البيانات من localStorage (نسخ احتياطي)
+        // ============================================
         function loadFiresFromLocal() {
             const saved = localStorage.getItem('skikdaFires');
             if (saved) {
@@ -1622,7 +1642,7 @@
         }
 
         // ============================================
-        // 9. دالة إضافة حريق + التحذير الصوتي والثابت
+        // 10. دالة إضافة حريق
         // ============================================
         function addFire() {
             if (!currentUser) {
@@ -1658,12 +1678,6 @@
                     extinguished: false,
                     addedBy: currentUser
                 };
-
-                // 🔔 تشغيل صوت تحذير فوري
-                playAlertSound(severity);
-
-                // 🚨 إظهار نافذة تحذير ثابتة (لا تختفي إلا يدوياً)
-                showPersistentAlert(fire);
 
                 if (isFirebaseReady) {
                     db.collection('fires').add(fire)
@@ -1748,13 +1762,12 @@
         }
 
         // ============================================
-        // 🎵 تشغيل صوت التحذير حسب شدة الحريق
+        // 🎵 تشغيل صوت التحذير
         // ============================================
         function playAlertSound(severity) {
             try {
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 
-                // تكرار الصوت عدة مرات حسب شدة الخطر
                 const repeatCount = severity === 'extreme' ? 6 : 
                                    severity === 'high' ? 4 : 
                                    severity === 'medium' ? 2 : 1;
@@ -1766,7 +1779,6 @@
                     oscillator.connect(gainNode);
                     gainNode.connect(audioCtx.destination);
                     
-                    // تردد مختلف حسب الشدة
                     if (severity === 'extreme') {
                         oscillator.frequency.value = 800;
                         gainNode.gain.value = 0.15;
@@ -1790,7 +1802,6 @@
                     }
                 }, 500);
                 
-                // تأخير إضافي للحالات القصوى
                 if (severity === 'extreme') {
                     setTimeout(() => {
                         const osc2 = audioCtx.createOscillator();
@@ -1810,7 +1821,7 @@
         }
 
         // ============================================
-        // 🚨 إظهار نافذة تحذير ثابتة (لا تختفي إلا يدوياً)
+        // 🚨 إظهار نافذة التحذير الثابتة (لجميع المستخدمين)
         // ============================================
         function showPersistentAlert(fire) {
             const overlay = document.getElementById('alertOverlay');
@@ -1829,7 +1840,6 @@
             
             overlay.classList.add('active');
             
-            // اهتزاز الشاشة للحالات القصوى
             if (fire.severity === 'extreme') {
                 document.body.style.animation = 'shakeAlert 0.5s ease';
                 setTimeout(() => {
@@ -1847,7 +1857,7 @@
         }
 
         // ============================================
-        // 10. دوال أخرى
+        // 11. دوال أخرى
         // ============================================
         function saveFireLocal(fire) {
             let localFires = [];
@@ -1867,7 +1877,7 @@
         }
 
         // ============================================
-        // 11. عرض الحريق على الخريطة
+        // 12. عرض الحريق على الخريطة
         // ============================================
         function addFireToMap(fire, animate = true) {
             const config = fire.extinguished ? 
@@ -1997,7 +2007,7 @@
         }
 
         // ============================================
-        // 12. إطفاء الحريق
+        // 13. إطفاء الحريق
         // ============================================
         function extinguishFire(fireId) {
             if (!currentUser) {
@@ -2026,7 +2036,7 @@
         }
 
         // ============================================
-        // 13. حذف الحريق
+        // 14. حذف الحريق
         // ============================================
         function deleteFire(fireId) {
             if (!currentUser) {
@@ -2055,7 +2065,7 @@
         }
 
         // ============================================
-        // 14. استيراد وتصدير البيانات
+        // 15. استيراد وتصدير البيانات
         // ============================================
         function importData(event) {
             if (!currentUser) {
@@ -2143,7 +2153,7 @@
         }
 
         // ============================================
-        // 15. مسح جميع الحرائق
+        // 16. مسح جميع الحرائق
         // ============================================
         function clearAllFires() {
             if (fires.length === 0) {
@@ -2206,7 +2216,7 @@
         }
 
         // ============================================
-        // 16. دوال مساعدة
+        // 17. دوال مساعدة
         // ============================================
         function updateInfo(message, type = '') {
             const info = document.getElementById('info');
@@ -2227,7 +2237,7 @@
         }
 
         // ============================================
-        // 17. حرائق تجريبية
+        // 18. حرائق تجريبية
         // ============================================
         function loadSampleFires() {
             const samples = [
@@ -2300,7 +2310,7 @@
         }
 
         // ============================================
-        // 18. تشغيل التطبيق
+        // 19. تشغيل التطبيق
         // ============================================
         document.getElementById('date').value = new Date().toISOString().split('T')[0];
 
