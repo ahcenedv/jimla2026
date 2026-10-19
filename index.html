@@ -14,11 +14,12 @@
     <!-- Leaflet Fullscreen JS -->
     <script src="https://unpkg.com/leaflet-fullscreen@1.0.2/dist/Leaflet.fullscreen.js"></script>
     <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     
     <!-- ===== Firebase SDK ===== -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     
     <style>
         /* ========== RESET & BASE ========== */
@@ -991,37 +992,58 @@
             position: relative;
             z-index: 1;
         }
+    
+        /* ========== إضافات النسخة الآمنة ========== */
+        .staff-only { display: none !important; }
+        body.is-staff .staff-only { display: flex !important; }
+        body:not(.is-admin) .admin-only { display: none !important; }
+        .login-box .cancel-btn { background: #9e9e9e; margin-top: 8px; box-shadow: none; }
+        .login-box .cancel-btn:hover { background: #757575; }
+        .status-bar { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+        .enable-alerts-btn {
+            background: #ff6f00; color: #fff; border: none; border-radius: 30px;
+            padding: 3px 12px; font-size: 11px; font-weight: bold; cursor: pointer; font-family: inherit;
+        }
+        .enable-alerts-btn.on { background: #2e7d32; cursor: default; }
+        .disclaimer {
+            width: 100%; max-width: 1200px; margin: 6px 0 12px; padding: 8px 16px;
+            background: #fff3e0; border-right: 5px solid #e65100; border-radius: 12px;
+            font-size: 12px; color: #4e342e; text-align: center;
+        }
     </style>
 </head>
 <body>
 
     <!-- ===== شاشة تسجيل الدخول ===== -->
-    <div id="loginScreen">
+    <div id="loginScreen" class="hidden">
         <div class="login-box">
-            <h2>🚨 نظام جيملة للإنذار المبكر</h2>
-            <p>سجل دخولك للوصول إلى لوحة التحكم</p>
-            <input type="text" id="loginUsername" placeholder="👤 اسم المستخدم" />
-            <input type="password" id="loginPassword" placeholder="🔑 كلمة المرور" />
-            <button onclick="login()">🚀 تسجيل الدخول</button>
+            <h2>🔐 دخول الطاقم المصرّح له</h2>
+            <p>الخريطة متاحة للجميع للمشاهدة. تسجيل الدخول مطلوب لتسجيل الحرائق وإدارتها فقط.</p>
+            <input type="email" id="loginEmail" placeholder="✉️ البريد الإلكتروني" autocomplete="username" />
+            <input type="password" id="loginPassword" placeholder="🔑 كلمة المرور" autocomplete="current-password" />
+            <button id="loginSubmit" onclick="login()">🚀 تسجيل الدخول</button>
+            <button class="cancel-btn" onclick="closeLogin()">↩️ العودة للخريطة</button>
             <div class="error-msg" id="loginError"></div>
         </div>
     </div>
 
     <!-- ===== المحتوى الرئيسي ===== -->
-    <div id="mainApp" style="display:none; width:100%; max-width:1200px;">
+    <div id="mainApp" style="width:100%; max-width:1200px;">
 
         <!-- ===== HEADER ===== -->
         <div class="header">
             <h1>🚨 نظام جيملة للإنذار المبكر للحرائق - ولاية سكيكدة</h1>
             <p>📍 مراقبة شاملة للحرائق مع إنذار فوري وإحصائيات لحظية</p>
             <span class="badge">✨ تصميم مجرداوي أحسن</span>
-            <span class="user-info" id="userInfo">👤 admin</span>
-            <button class="logout-btn" onclick="logout()">🚪 خروج</button>
+            <span class="user-info" id="userInfo" style="display:none"></span>
+            <button class="logout-btn" id="loginBtn" onclick="openLogin()">🔐 دخول الطاقم</button>
+            <button class="logout-btn" id="logoutBtn" onclick="logout()" style="display:none">🚪 خروج</button>
         </div>
 
         <!-- ===== STATUS BAR ===== -->
         <div class="status-bar" id="statusBar">
-            🔌 جاري الاتصال بقاعدة البيانات السحابية...
+            <span id="statusText">🔌 جاري الاتصال بقاعدة البيانات السحابية...</span>
+            <button type="button" id="enableAlertsBtn" class="enable-alerts-btn" onclick="enableAlerts()">🔔 تفعيل التنبيهات الصوتية</button>
         </div>
 
         <!-- ===== DASHBOARD ===== -->
@@ -1071,7 +1093,7 @@
         </div>
 
         <!-- ===== FORM ===== -->
-        <div class="form-container">
+        <div class="form-container staff-only">
             <div class="suggestions-container" style="flex:2; min-width:90px;">
                 <input type="text" id="place" placeholder="📍 اسم المكان" autocomplete="off" />
                 <div class="suggestions-list" id="suggestionsList"></div>
@@ -1099,11 +1121,11 @@
         </div>
 
         <!-- ===== ACTION BUTTONS ===== -->
-        <div class="action-buttons">
+        <div class="action-buttons staff-only">
             <button class="action-btn export" onclick="exportData()">📥 تصدير</button>
-            <button class="action-btn import" onclick="document.getElementById('fileInput').click()">📤 استيراد</button>
+            <button class="action-btn import admin-only" onclick="document.getElementById('fileInput').click()">📤 استيراد</button>
             <input type="file" id="fileInput" accept=".json" onchange="importData(event)" />
-            <button class="action-btn clear" onclick="clearAllFires()">🗑️ مسح الكل</button>
+            <button class="action-btn clear admin-only" onclick="clearAllFires()">🗑️ مسح الكل</button>
         </div>
 
         <!-- ===== LEGEND ===== -->
@@ -1122,7 +1144,9 @@
         </div>
 
         <!-- ===== INFO ===== -->
-        <div id="info">💡 نظام الإنذار المبكر - سجل حريقًا جديدًا لبدء المراقبة</div>
+        <div id="info">👀 وضع المشاهدة - تظهر الحرائق لحظياً. تسجيل الحرائق للطاقم المصرّح له بعد تسجيل الدخول.</div>
+
+        <div class="disclaimer">⚠️ هذا النظام للمتابعة والتوعية وليس بديلاً عن الإبلاغ الرسمي. عند رؤية حريق اتصل فوراً بالحماية المدنية على الرقم <strong>14</strong>.</div>
 
     </div>
 
@@ -1146,103 +1170,68 @@
     <!-- ======================== JAVASCRIPT ======================= -->
     <!-- ========================================================= -->
     <script>
-        // ============================================
-        // 0. نظام تسجيل الدخول
-        // ============================================
-        const users = {
-            'admin': 'admin123',
-            'firefighter': 'fire123',
-            'observer': 'obs123'
-        };
+'use strict';
 
-        let currentUser = null;
+// ============================================
+// 0. أدوات مساعدة وأمان
+// ============================================
+const SEVERITIES = ['low', 'medium', 'high', 'extreme'];
+const HISTORY_DAYS = 365;                 // عدد أيام السجل المحمَّلة (يقلل عدد القراءات من السحابة)
+const GEO_BOUNDS = { minLat: 36.3, maxLat: 37.3, minLng: 5.9, maxLng: 7.8 };
 
-        function login() {
-            const username = document.getElementById('loginUsername').value.trim();
-            const password = document.getElementById('loginPassword').value.trim();
-            const errorEl = document.getElementById('loginError');
+// تعقيم أي نص قبل إدخاله في HTML (منع XSS)
+function escapeHtml(value) {
+    return String(value == null ? '' : value).replace(/[&<>"'`]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '`': '&#96;' }[c];
+    });
+}
 
-            if (!username || !password) {
-                errorEl.textContent = '⚠️ الرجاء إدخال اسم المستخدم وكلمة المرور';
-                return;
-            }
+function safeId(id) {
+    return String(id == null ? '' : id).replace(/[^A-Za-z0-9_-]/g, '');
+}
 
-            if (users[username] && users[username] === password) {
-                currentUser = username;
-                document.getElementById('loginScreen').classList.add('hidden');
-                document.getElementById('mainApp').style.display = 'block';
-                document.getElementById('userInfo').textContent = '👤 ' + username;
-                errorEl.textContent = '';
-                
-                initializeApp();
-            } else {
-                errorEl.textContent = '❌ اسم المستخدم أو كلمة المرور غير صحيحة';
-            }
-        }
+function inBounds(lat, lng) {
+    return lat >= GEO_BOUNDS.minLat && lat <= GEO_BOUNDS.maxLat &&
+           lng >= GEO_BOUNDS.minLng && lng <= GEO_BOUNDS.maxLng;
+}
 
-        function logout() {
-            currentUser = null;
-            document.getElementById('loginScreen').classList.remove('hidden');
-            document.getElementById('mainApp').style.display = 'none';
-            document.getElementById('loginUsername').value = '';
-            document.getElementById('loginPassword').value = '';
-            document.getElementById('loginError').textContent = '';
-        }
+function todayStr() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
 
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && !document.getElementById('loginScreen').classList.contains('hidden')) {
-                login();
-            }
-        });
+// تنقية سجل حريق قادم من قاعدة البيانات أو من ملف مستورد؛ يعيد null إن كان غير صالح
+function sanitizeFire(raw, id) {
+    if (!raw || typeof raw !== 'object') return null;
+    const lat = Number(raw.lat), lng = Number(raw.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const dateOk = /^\d{4}-\d{2}-\d{2}$/.test(String(raw.date || ''));
+    const addedAt = String(raw.addedAt || '').slice(0, 40);
+    const fire = {
+        id: safeId(id),
+        place: String(raw.place || '').trim().slice(0, 100),
+        date: dateOk ? String(raw.date) : todayStr(),
+        severity: SEVERITIES.indexOf(raw.severity) !== -1 ? raw.severity : 'low',
+        description: String(raw.description || '').slice(0, 300),
+        lat: lat,
+        lng: lng,
+        addedAt: addedAt || new Date().toISOString(),
+        extinguished: raw.extinguished === true,
+        addedBy: String(raw.addedBy || '').slice(0, 80),
+        imported: raw.imported === true
+    };
+    if (fire.extinguished) {
+        fire.extinguishedAt = String(raw.extinguishedAt || '').slice(0, 40);
+        fire.extinguishedBy = String(raw.extinguishedBy || '').slice(0, 80);
+    }
+    return fire;
+}
 
-        // ============================================
-        // 🔥 إعداد Firebase
-        // ============================================
-        const firebaseConfig = {
-            apiKey: "AIzaSyDmBtzU5r4T05PWZ3zcaYh2M9RrHwS8M",
-            authDomain: "skikda-fires.firebaseapp.com",
-            projectId: "skikda-fires",
-            storageBucket: "skikda-fires.firebasestorage.app",
-            messagingSenderId: "198382849419",
-            appId: "1:198382849419:web:3be717cb52be8b8fb2038e"
-        };
-
-        let db;
-        let isFirebaseReady = false;
-
-        // متغير لتتبع آخر حريق تم التنبيه له (لمنع التكرار)
-        let lastAlertedFireId = null;
-
-        function initializeApp() {
-            if (window._firebaseInitialized) return;
-            window._firebaseInitialized = true;
-
-            try {
-                firebase.initializeApp(firebaseConfig);
-                db = firebase.firestore();
-                
-                db.collection('fires').limit(1).get()
-                    .then(() => {
-                        isFirebaseReady = true;
-                        document.getElementById('statusBar').innerHTML = '✅ متصل بقاعدة البيانات السحابية <span class="connected">(مباشر)</span>';
-                        loadFiresFromCloud();
-                    })
-                    .catch((error) => {
-                        console.warn('⚠️ مشكلة في الاتصال بـ Firebase:', error);
-                        document.getElementById('statusBar').innerHTML = '⚠️ غير متصل بالسحابة - البيانات محلية فقط <span class="disconnected">(غير متصل)</span>';
-                        loadFiresFromLocal();
-                    });
-            } catch (error) {
-                console.warn('⚠️ Firebase غير مهيأ:', error);
-                document.getElementById('statusBar').innerHTML = '⚠️ غير متصل بالسحابة - البيانات محلية فقط <span class="disconnected">(غير متصل)</span>';
-                loadFiresFromLocal();
-            }
-        }
-
-        // ============================================
-        // 1. قائمة بلديات ولاية سكيكدة
-        // ============================================
-        const municipalities = [
+// ============================================
+// 1. قائمة بلديات ولاية سكيكدة
+// ============================================
+const municipalities = [
             { name: 'أم الطوب', lat: 36.691, lng: 6.580 },
             { name: 'أمجاز الدشيش', lat: 36.706, lng: 6.807 },
             { name: 'أولاد أحبابة', lat: 36.500, lng: 6.957 },
@@ -1284,28 +1273,26 @@
             { name: 'وادي الزهور', lat: 36.924, lng: 6.317 }
         ];
 
-        // ============================================
-        // 2. تهيئة الخريطة
-        // ============================================
-        const map = L.map('map', {
-            center: [36.876, 6.909],
-            zoom: 11,
-            zoomControl: true,
-            fullscreenControl: true,
-            fullscreenControlOptions: {
-                position: 'bottomright'
-            }
-        });
+// ============================================
+// 2. تهيئة الخريطة
+// ============================================
+const map = L.map('map', {
+    center: [36.876, 6.909],
+    zoom: 11,
+    zoomControl: true,
+    fullscreenControl: true,
+    fullscreenControlOptions: { position: 'bottomright' }
+});
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-            maxZoom: 19
-        }).addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    maxZoom: 19
+}).addTo(map);
 
-        // ============================================
-        // 3. حدود الولاية
-        // ============================================
-        const skikdaBoundary = {
+// ============================================
+// 3. حدود الولاية (تقريبية - يُفضّل استبدالها بملف GeoJSON رسمي)
+// ============================================
+const skikdaBoundary = {
             "type": "FeatureCollection",
             "features": [{
                 "type": "Feature",
@@ -1343,1028 +1330,903 @@
             }
         }).addTo(map);
 
-        // ============================================
-        // 4. نظام الاقتراحات
-        // ============================================
-        const placeInput = document.getElementById('place');
-        const suggestionsList = document.getElementById('suggestionsList');
+// ============================================
+// 4. نظام الاقتراحات
+// ============================================
+const placeInput = document.getElementById('place');
+const suggestionsList = document.getElementById('suggestionsList');
+const descriptionInput = document.getElementById('description');
+placeInput.maxLength = 100;
+descriptionInput.maxLength = 300;
+let coordsAutoFilled = false;
 
-        placeInput.addEventListener('input', function() {
-            const query = this.value.trim();
-            
-            if (query.length === 0) {
-                suggestionsList.classList.remove('show');
-                return;
-            }
+placeInput.addEventListener('input', function () {
+    // إذا غيّر المستخدم الاسم بعد اختيار اقتراح، نمسح الإحداثيات التلقائية حتى لا تبقى إحداثيات مكان آخر
+    if (coordsAutoFilled) {
+        document.getElementById('lat').value = '';
+        document.getElementById('lng').value = '';
+        coordsAutoFilled = false;
+    }
 
-            const matches = municipalities.filter(m => 
-                m.name.includes(query) || 
-                query.includes(m.name) ||
-                m.name.replace(/\s/g, '').includes(query.replace(/\s/g, ''))
-            );
+    const query = this.value.trim();
+    if (query.length === 0) {
+        suggestionsList.classList.remove('show');
+        return;
+    }
 
-            if (matches.length === 0) {
-                suggestionsList.classList.remove('show');
-                return;
-            }
+    const q = query.replace(/\s/g, '');
+    const matches = municipalities.filter(m =>
+        m.name.includes(query) ||
+        (query.length >= 3 && query.includes(m.name)) ||
+        m.name.replace(/\s/g, '').includes(q)
+    );
 
-            suggestionsList.innerHTML = '';
-            matches.slice(0, 10).forEach((m) => {
-                const div = document.createElement('div');
-                div.className = 'suggestion-item';
-                div.textContent = `🏛️ ${m.name}`;
-                div.addEventListener('click', function() {
-                    placeInput.value = m.name;
-                    document.getElementById('lat').value = m.lat.toFixed(6);
-                    document.getElementById('lng').value = m.lng.toFixed(6);
-                    suggestionsList.classList.remove('show');
-                    map.flyTo([m.lat, m.lng], 13, { duration: 1 });
-                    updateInfo(`📍 تم اختيار "${m.name}" - الإحداثيات: ${m.lat.toFixed(4)}, ${m.lng.toFixed(4)}`, 'success');
-                });
-                suggestionsList.appendChild(div);
+    if (matches.length === 0) {
+        suggestionsList.classList.remove('show');
+        return;
+    }
+
+    suggestionsList.innerHTML = '';
+    matches.slice(0, 10).forEach(function (m) {
+        const div = document.createElement('div');
+        div.className = 'suggestion-item';
+        div.textContent = '🏛️ ' + m.name;
+        div.addEventListener('click', function () {
+            placeInput.value = m.name;
+            document.getElementById('lat').value = m.lat.toFixed(6);
+            document.getElementById('lng').value = m.lng.toFixed(6);
+            coordsAutoFilled = true;
+            suggestionsList.classList.remove('show');
+            map.flyTo([m.lat, m.lng], 13, { duration: 1 });
+            updateInfo('📍 تم اختيار "' + m.name + '" - الإحداثيات: ' + m.lat.toFixed(4) + ', ' + m.lng.toFixed(4), 'success');
+        });
+        suggestionsList.appendChild(div);
+    });
+    suggestionsList.classList.add('show');
+});
+
+document.addEventListener('click', function (e) {
+    if (!e.target.closest('.suggestions-container')) {
+        suggestionsList.classList.remove('show');
+    }
+});
+
+// ============================================
+// 5. الموقع الحالي
+// ============================================
+function getCurrentLocation() {
+    if (!navigator.geolocation) {
+        updateInfo('⚠️ متصفحك لا يدعم تحديد الموقع', 'error');
+        return;
+    }
+    updateInfo('⏳ جاري الحصول على الموقع...', '');
+    navigator.geolocation.getCurrentPosition(
+        function (position) {
+            const lat = position.coords.latitude;
+            const lng = position.coords.longitude;
+            document.getElementById('lat').value = lat.toFixed(6);
+            document.getElementById('lng').value = lng.toFixed(6);
+            coordsAutoFilled = false;
+            map.flyTo([lat, lng], 15, { duration: 1 });
+            const marker = L.marker([lat, lng], {
+                icon: L.divIcon({ className: 'temp-marker', html: '📍', iconSize: [30, 30], iconAnchor: [15, 30] })
+            }).addTo(map);
+            setTimeout(() => map.removeLayer(marker), 3000);
+            updateInfo('📍 تم تحديد موقعك', 'success');
+        },
+        function () { updateInfo('⚠️ لم نتمكن من تحديد موقعك', 'error'); },
+        { enableHighAccuracy: true, timeout: 10000 }
+    );
+}
+
+// ============================================
+// 6. أيقونات الشعلة
+// ============================================
+const severityConfig = {
+    low:          { emoji: '🟢', color: '#2e7d32', label: 'منخفضة', iconSize: 36 },
+    medium:       { emoji: '🟡', color: '#f57f17', label: 'متوسطة', iconSize: 38 },
+    high:         { emoji: '🟠', color: '#e65100', label: 'عالية',  iconSize: 40 },
+    extreme:      { emoji: '🔴', color: '#b71c1c', label: 'قصوى',   iconSize: 42 },
+    extinguished: { emoji: '🔵', color: '#0d47a1', label: 'مُطفأ',  iconSize: 36 }
+};
+
+function getFlameIcon(severity, isExtinguished) {
+    const config = isExtinguished ? severityConfig.extinguished : (severityConfig[severity] || severityConfig.low);
+    const iconHtml = isExtinguished ? '✅' : config.emoji + '🔥';
+    return L.divIcon({
+        className: 'flame-icon',
+        html: iconHtml,
+        iconSize: [config.iconSize, config.iconSize],
+        iconAnchor: [config.iconSize / 2, config.iconSize],
+        popupAnchor: [0, -config.iconSize],
+        tooltipAnchor: [0, -config.iconSize]
+    });
+}
+
+// ============================================
+// 7. الحالة العامة
+// ============================================
+let fires = [];
+let fireMarkers = {};
+let fireExtras = {};          // الدوائر الوامضة لكل حريق (مصفوفة)
+let chartInstance = null;
+let isRebuilding = false;
+let openPopupFireId = null;
+
+let db = null;
+let auth = null;
+let currentUser = null;       // كائن Firebase user
+let currentRole = null;       // 'admin' | 'firefighter' | null
+let initialLoadDone = false;
+let alertsEnabled = false;
+const baseTitle = document.title;
+
+function canEdit() { return currentRole === 'admin' || currentRole === 'firefighter'; }
+function isAdmin() { return currentRole === 'admin'; }
+const roleLabels = { admin: 'مدير', firefighter: 'حماية مدنية' };
+
+// ============================================
+// 8. المصادقة (Firebase Authentication) والأدوار
+// ============================================
+const loginScreen = document.getElementById('loginScreen');
+const loginError = document.getElementById('loginError');
+
+function openLogin() {
+    loginError.textContent = '';
+    loginScreen.classList.remove('hidden');
+    setTimeout(() => document.getElementById('loginEmail').focus(), 50);
+}
+
+function closeLogin() {
+    loginScreen.classList.add('hidden');
+    document.getElementById('loginPassword').value = '';
+}
+
+function authErrorMessage(code) {
+    switch (code) {
+        case 'auth/invalid-email': return '❌ صيغة البريد الإلكتروني غير صحيحة';
+        case 'auth/invalid-credential':
+        case 'auth/wrong-password':
+        case 'auth/user-not-found': return '❌ البريد أو كلمة المرور غير صحيحة';
+        case 'auth/too-many-requests': return '⏳ محاولات كثيرة، حاول لاحقاً';
+        case 'auth/network-request-failed': return '⚠️ تعذّر الاتصال بالإنترنت';
+        case 'auth/user-disabled': return '⛔ هذا الحساب معطّل';
+        default: return '❌ تعذّر تسجيل الدخول';
+    }
+}
+
+async function login() {
+    if (!auth) { loginError.textContent = '⚠️ خدمة المصادقة غير متاحة'; return; }
+    const email = document.getElementById('loginEmail').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    if (!email || !password) {
+        loginError.textContent = '⚠️ الرجاء إدخال البريد الإلكتروني وكلمة المرور';
+        return;
+    }
+    const btn = document.getElementById('loginSubmit');
+    btn.disabled = true;
+    loginError.textContent = '';
+    try {
+        await auth.signInWithEmailAndPassword(email, password);
+        // بقية العملية تتم في handleAuthChange
+    } catch (e) {
+        loginError.textContent = authErrorMessage(e && e.code);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+function logout() {
+    if (auth) auth.signOut();
+}
+
+async function handleAuthChange(user) {
+    if (!user) {
+        currentUser = null;
+        currentRole = null;
+        applyAuthUI();
+        return;
+    }
+
+    let role = null;
+    try {
+        const snap = await db.collection('roles').doc(user.uid).get();
+        if (snap.exists) role = snap.data().role;
+    } catch (e) {
+        console.warn('تعذّر قراءة الصلاحيات:', e);
+    }
+
+    if (role !== 'admin' && role !== 'firefighter') {
+        // حساب موجود لكن بلا صلاحيات: نخرجه ونعرض رسالة
+        loginError.textContent = '⛔ هذا الحساب غير مفعّل. تواصل مع المسؤول.';
+        loginScreen.classList.remove('hidden');
+        await auth.signOut();
+        return;
+    }
+
+    currentUser = user;
+    currentRole = role;
+    closeLogin();
+    applyAuthUI();
+    updateInfo('✅ مرحباً ' + (user.email || '') + ' - الصلاحية: ' + roleLabels[role], 'success');
+}
+
+function applyAuthUI() {
+    document.body.classList.toggle('is-staff', canEdit());
+    document.body.classList.toggle('is-admin', isAdmin());
+    document.getElementById('loginBtn').style.display = currentUser ? 'none' : '';
+    document.getElementById('logoutBtn').style.display = currentUser ? '' : 'none';
+    const info = document.getElementById('userInfo');
+    info.style.display = currentUser ? '' : 'none';
+    info.textContent = currentUser ? '👤 ' + (currentUser.email || '') + ' (' + roleLabels[currentRole] + ')' : '';
+    renderFires();   // لتحديث أزرار الإطفاء والحذف داخل النوافذ المنبثقة
+}
+
+// ============================================
+// 9. الاتصال بقاعدة البيانات والاستماع اللحظي
+// ============================================
+const firebaseConfig = {
+    // ⚠️ تأكد أن المفتاح منسوخ كاملاً من إعدادات مشروعك (Project settings → Your apps)
+    apiKey: "AIzaSyDmBtzU5r4T05PWZ3zcaYh2M9RrHwS8M",
+    authDomain: "skikda-fires.firebaseapp.com",
+    projectId: "skikda-fires",
+    storageBucket: "skikda-fires.firebasestorage.app",
+    messagingSenderId: "198382849419",
+    appId: "1:198382849419:web:3be717cb52be8b8fb2038e"
+};
+
+function setStatus(ok, text) {
+    const el = document.getElementById('statusText');
+    el.innerHTML = (ok ? '✅ ' : '⚠️ ') + escapeHtml(text) +
+        ' <span class="' + (ok ? 'connected' : 'disconnected') + '">(' + (ok ? 'مباشر' : 'غير متصل') + ')</span>';
+}
+
+function startCloud() {
+    try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        auth = firebase.auth();
+    } catch (e) {
+        console.error('Firebase غير متاح:', e);
+        setStatus(false, 'تعذّر تحميل خدمات السحابة - تحقق من الاتصال بالإنترنت');
+        return;
+    }
+
+    auth.onAuthStateChanged(handleAuthChange);
+
+    const since = new Date(Date.now() - HISTORY_DAYS * 86400000).toISOString();
+    db.collection('fires')
+        .where('addedAt', '>=', since)
+        .orderBy('addedAt', 'desc')
+        .onSnapshot(function (snapshot) {
+            const list = [];
+            snapshot.forEach(function (doc) {
+                const f = sanitizeFire(doc.data(), doc.id);
+                if (f) list.push(f);
             });
 
-            suggestionsList.classList.add('show');
-        });
-
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.suggestions-container')) {
-                suggestionsList.classList.remove('show');
+            // 🔔 التنبيه لكل زائر عند وصول حرائق جديدة (بعد التحميل الأول فقط)
+            if (initialLoadDone) {
+                const fresh = [];
+                snapshot.docChanges().forEach(function (change) {
+                    if (change.type !== 'added' || change.doc.metadata.hasPendingWrites) return;
+                    const f = sanitizeFire(change.doc.data(), change.doc.id);
+                    if (f && !f.extinguished && !f.imported) fresh.push(f);
+                });
+                if (fresh.length) notifyNewFires(fresh);
             }
+            initialLoadDone = true;
+
+            setStatus(true, 'متصل بقاعدة البيانات السحابية');
+            setFires(list);
+        }, function (error) {
+            console.error('❌ خطأ في الاستماع للبيانات:', error);
+            setStatus(false, 'تعذّر قراءة البيانات من السحابة');
         });
+}
 
-        // ============================================
-        // 5. الموقع الحالي
-        // ============================================
-        function getCurrentLocation() {
-            if (!navigator.geolocation) {
-                updateInfo('⚠️ متصفحك لا يدعم تحديد الموقع', 'error');
-                return;
-            }
+window.addEventListener('offline', () => setStatus(false, 'انقطع الاتصال بالإنترنت'));
+window.addEventListener('online', () => setStatus(true, 'عاد الاتصال بالإنترنت'));
 
-            updateInfo('⏳ جاري الحصول على الموقع...', '');
-            
-            navigator.geolocation.getCurrentPosition(
-                function(position) {
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
-                    document.getElementById('lat').value = lat.toFixed(6);
-                    document.getElementById('lng').value = lng.toFixed(6);
-                    map.flyTo([lat, lng], 15, { duration: 1 });
-                    
-                    const marker = L.marker([lat, lng], {
-                        icon: L.divIcon({
-                            className: 'temp-marker',
-                            html: '📍',
-                            iconSize: [30, 30],
-                            iconAnchor: [15, 30]
-                        })
-                    }).addTo(map);
-                    setTimeout(() => map.removeLayer(marker), 3000);
-                    
-                    updateInfo(`📍 تم تحديد موقعك`, 'success');
-                },
-                function(error) {
-                    updateInfo('⚠️ لم نتمكن من تحديد موقعك', 'error');
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
+function setFires(list) {
+    fires = list.slice().sort((a, b) => (a.addedAt < b.addedAt ? 1 : -1));
+    renderFires();
+    updateAll();
+}
+
+// ============================================
+// 10. لوحة المعلومات والشريط والرسم البياني
+// ============================================
+function updateAll() {
+    updateDashboard();
+    updateMarquee();
+    updateChart();
+}
+
+function updateDashboard() {
+    const total = fires.length;
+    const active = fires.filter(f => !f.extinguished).length;
+    const extinguished = total - active;
+    const highDanger = fires.filter(f => !f.extinguished && (f.severity === 'high' || f.severity === 'extreme')).length;
+    const extreme = fires.filter(f => !f.extinguished && f.severity === 'extreme').length;
+
+    document.getElementById('totalCount').textContent = total;
+    document.getElementById('activeCount').textContent = active;
+    document.getElementById('extinguishedCount').textContent = extinguished;
+    document.getElementById('highDangerCount').textContent = highDanger;
+    document.getElementById('extremeCount').textContent = extreme;
+
+    if (extreme > 0) {
+        const info = document.getElementById('info');
+        info.textContent = '🚨 تنبيه! هناك ' + extreme + ' حريق/حرائق قصوى تتطلب تدخلًا فوريًا!';
+        info.className = 'warning';
+    }
+}
+
+function updateMarquee() {
+    const content = document.getElementById('marqueeContent');
+    document.getElementById('totalFires').textContent = fires.length;
+
+    if (fires.length === 0) {
+        content.innerHTML = '<span class="marquee-empty">🚫 لا توجد حرائق مسجلة حالياً</span>';
+        content.style.animation = 'none';
+        return;
+    }
+
+    const items = fires.map(function (fire) {
+        const config = severityConfig[fire.severity] || severityConfig.low;
+        const severityClass = fire.extinguished ? 'extinguished' : fire.severity;
+        const statusText = fire.extinguished ? '✅ مُطفأ' : config.emoji + ' ' + config.label;
+        const icon = fire.extinguished ? '✅' : '🔥';
+        return '<span class="marquee-item">' +
+            '<span class="fire-icon">' + icon + '</span>' +
+            '<span class="fire-place">' + escapeHtml(fire.place) + '</span>' +
+            '<span class="fire-severity ' + severityClass + '">' + statusText + '</span>' +
+            '<span class="fire-date-small">📅 ' + escapeHtml(fire.date) + '</span>' +
+            '</span>';
+    });
+
+    content.innerHTML = items.join('') + items.join('');
+    content.style.animation = 'none';
+    void content.offsetWidth;
+    content.style.animation = 'marqueeAnim 20s linear infinite';
+}
+
+function updateChart() {
+    if (typeof Chart === 'undefined') return;
+    const ctx = document.getElementById('severityChart').getContext('2d');
+    const activeFires = fires.filter(f => !f.extinguished);
+    const counts = SEVERITIES.map(s => activeFires.filter(f => f.severity === s).length);
+
+    if (chartInstance) chartInstance.destroy();
+    chartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['🟢 منخفضة', '🟡 متوسطة', '🟠 عالية', '🔴 قصوى'],
+            datasets: [{
+                data: counts,
+                backgroundColor: ['#2e7d32', '#f57f17', '#e65100', '#b71c1c'],
+                borderColor: ['#1b5e20', '#e65100', '#bf360c', '#880e4f'],
+                borderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'bottom', labels: { font: { size: 10 }, padding: 6 } } }
         }
+    });
+}
 
-        // ============================================
-        // 6. أيقونات الشعلة
-        // ============================================
-        const severityConfig = {
-            low: { emoji: '🟢', color: '#2e7d32', label: 'منخفضة', iconSize: 36 },
-            medium: { emoji: '🟡', color: '#f57f17', label: 'متوسطة', iconSize: 38 },
-            high: { emoji: '🟠', color: '#e65100', label: 'عالية', iconSize: 40 },
-            extreme: { emoji: '🔴', color: '#b71c1c', label: 'قصوى', iconSize: 42 },
-            extinguished: { emoji: '🔵', color: '#0d47a1', label: 'مُطفأ', iconSize: 36 }
+// ============================================
+// 11. إضافة حريق (للطاقم فقط)
+// ============================================
+function resetAddBtn() {
+    const btn = document.querySelector('.form-container .add-btn');
+    btn.disabled = false;
+    btn.textContent = '➕ إضافة';
+}
+
+function addFire() {
+    if (!canEdit()) {
+        updateInfo('⚠️ تسجيل الحرائق متاح للطاقم المصرّح له فقط - سجّل الدخول أولاً', 'error');
+        return;
+    }
+
+    const place = document.getElementById('place').value.trim().slice(0, 100);
+    const latInput = document.getElementById('lat').value.trim();
+    const lngInput = document.getElementById('lng').value.trim();
+    const date = document.getElementById('date').value;
+    const severity = document.getElementById('severity').value;
+    const description = document.getElementById('description').value.trim().slice(0, 300);
+
+    if (SEVERITIES.indexOf(severity) === -1) {
+        updateInfo('⚠️ درجة شدة غير صالحة', 'error');
+        return;
+    }
+    if (!place && (!latInput || !lngInput)) {
+        updateInfo('⚠️ الرجاء إدخال اسم المكان أو الإحداثيات', 'error');
+        return;
+    }
+
+    const btn = document.querySelector('.form-container .add-btn');
+    btn.disabled = true;
+    btn.textContent = '⏳ جاري...';
+
+    const processFire = function (lat, lng, placeName) {
+        if (!inBounds(lat, lng)) {
+            updateInfo('⚠️ الإحداثيات خارج ولاية سكيكدة', 'error');
+            resetAddBtn();
+            return;
+        }
+        const fire = {
+            place: (placeName || 'نقطة (' + lat.toFixed(4) + ', ' + lng.toFixed(4) + ')').slice(0, 100),
+            date: /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : todayStr(),
+            severity: severity,
+            description: description || 'لا يوجد وصف',
+            lat: lat,
+            lng: lng,
+            addedAt: new Date().toISOString(),
+            extinguished: false,
+            addedBy: currentUser.email
         };
 
-        function getFlameIcon(severity, isExtinguished = false) {
-            let config;
-            if (isExtinguished) {
-                config = severityConfig.extinguished;
-            } else {
-                config = severityConfig[severity] || severityConfig.low;
-            }
-            
-            const iconHtml = isExtinguished ? '✅' : `${config.emoji}🔥`;
-            
-            return L.divIcon({
-                className: 'flame-icon',
-                html: iconHtml,
-                iconSize: [config.iconSize, config.iconSize],
-                iconAnchor: [config.iconSize / 2, config.iconSize],
-                popupAnchor: [0, -config.iconSize],
-                tooltipAnchor: [0, -config.iconSize]
-            });
+        db.collection('fires').add(fire)
+            .then(function () {
+                clearForm();
+                updateInfo('✅ تم تسجيل حريق في "' + fire.place + '" | الشدة: ' + severityConfig[severity].label, 'success');
+                map.flyTo([lat, lng], 14, { duration: 1.2 });
+            })
+            .catch(function (error) {
+                console.error('❌ خطأ في الحفظ:', error);
+                const denied = error && error.code === 'permission-denied';
+                updateInfo(denied ? '⛔ ليست لديك صلاحية الإضافة' : '⚠️ تعذّر الحفظ، تحقق من الاتصال', 'error');
+            })
+            .finally(resetAddBtn);
+    };
+
+    if (latInput && lngInput) {
+        const lat = parseFloat(latInput);
+        const lng = parseFloat(lngInput);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+            updateInfo('⚠️ إحداثيات غير صالحة', 'error');
+            resetAddBtn();
+            return;
         }
+        processFire(lat, lng, place);
+        return;
+    }
 
-        // ============================================
-        // 7. مصفوفة الحرائق والعلامات
-        // ============================================
-        let fires = [];
-        let fireMarkers = {};
-        let pulseCircles = {};
-        let chartInstance = null;
+    // البحث في قائمة البلديات (تطابق تام أولاً)
+    const norm = s => s.replace(/\s/g, '');
+    let found = municipalities.find(m => m.name === place) ||
+        (place.length >= 3 && municipalities.find(m => m.name.includes(place) || place.includes(m.name))) ||
+        municipalities.find(m => norm(m.name) === norm(place));
 
-        // ============================================
-        // 8. تحميل البيانات من Firebase + التحذير للجميع
-        // ============================================
-        function loadFiresFromCloud() {
-            if (!isFirebaseReady) return;
-            
-            db.collection('fires')
-                .orderBy('addedAt', 'desc')
-                .onSnapshot((snapshot) => {
-                    const newFires = [];
-                    snapshot.forEach((doc) => {
-                        const data = doc.data();
-                        data.id = doc.id;
-                        newFires.push(data);
-                    });
-                    
-                    // 🔔 التحقق من وجود حرائق جديدة (لجميع المستخدمين)
-                    if (fires.length > 0 && newFires.length > fires.length) {
-                        // العثور على الحريق الجديد (الأحدث)
-                        const newFire = newFires[0];
-                        // التأكد من أنه لم يتم التنبيه له من قبل
-                        if (newFire.id !== lastAlertedFireId) {
-                            lastAlertedFireId = newFire.id;
-                            // تشغيل الصوت للجميع
-                            playAlertSound(newFire.severity);
-                            // إظهار نافذة التحذير للجميع
-                            showPersistentAlert(newFire);
-                        }
-                    }
-                    
-                    updateFires(newFires);
-                }, (error) => {
-                    console.error('❌ خطأ في الاستماع للبيانات:', error);
-                });
-        }
+    if (found) {
+        processFire(found.lat, found.lng, found.name);
+        return;
+    }
 
-        // ============================================
-        // 9. تحميل البيانات من localStorage (نسخ احتياطي)
-        // ============================================
-        function loadFiresFromLocal() {
-            const saved = localStorage.getItem('skikdaFires');
-            if (saved) {
-                try {
-                    const localFires = JSON.parse(saved);
-                    updateFires(localFires);
-                    updateInfo(`📊 تم تحميل ${localFires.length} حريق من الجهاز`, 'success');
-                } catch (e) {
-                    console.error('خطأ في تحميل البيانات المحلية:', e);
-                }
-            }
-        }
+    // البحث الجغرافي مقيّد بالجزائر ومحيط الولاية
+    const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=dz' +
+        '&viewbox=' + GEO_BOUNDS.minLng + ',' + GEO_BOUNDS.maxLat + ',' + GEO_BOUNDS.maxLng + ',' + GEO_BOUNDS.minLat +
+        '&bounded=1&q=' + encodeURIComponent(place + '، ولاية سكيكدة، الجزائر');
 
-        function updateFires(newFires) {
-            Object.keys(fireMarkers).forEach(id => {
-                map.removeLayer(fireMarkers[id]);
-                if (pulseCircles[id]) {
-                    map.removeLayer(pulseCircles[id]);
-                    delete pulseCircles[id];
-                }
-            });
-            fireMarkers = {};
-            
-            fires = newFires;
-            fires.forEach(fire => addFireToMap(fire, false));
-            updateAll();
-        }
-
-        function updateAll() {
-            updateDashboard();
-            updateMarquee();
-            updateChart();
-        }
-
-        function updateDashboard() {
-            const total = fires.length;
-            const active = fires.filter(f => !f.extinguished).length;
-            const extinguished = fires.filter(f => f.extinguished).length;
-            const highDanger = fires.filter(f => !f.extinguished && (f.severity === 'high' || f.severity === 'extreme')).length;
-            const extreme = fires.filter(f => !f.extinguished && f.severity === 'extreme').length;
-
-            document.getElementById('totalCount').textContent = total;
-            document.getElementById('activeCount').textContent = active;
-            document.getElementById('extinguishedCount').textContent = extinguished;
-            document.getElementById('highDangerCount').textContent = highDanger;
-            document.getElementById('extremeCount').textContent = extreme;
-
-            if (extreme > 0) {
-                document.getElementById('info').textContent = `🚨 تنبيه! هناك ${extreme} حريق/حرائق قصوى تتطلب تدخلًا فوريًا!`;
-                document.getElementById('info').className = 'warning';
-            }
-        }
-
-        function updateMarquee() {
-            const content = document.getElementById('marqueeContent');
-            const totalSpan = document.getElementById('totalFires');
-            
-            totalSpan.textContent = fires.length;
-
-            if (fires.length === 0) {
-                content.innerHTML = `
-                    <span class="marquee-empty">🚫 لا توجد حرائق مسجلة حتى الآن. أضف حريقًا جديدًا!</span>
-                `;
-                content.style.animation = 'none';
+    fetch(url)
+        .then(r => r.json())
+        .then(function (data) {
+            if (!data.length) {
+                updateInfo('❌ لم يتم العثور على "' + place + '" في سكيكدة - اختر من الاقتراحات أو أدخل الإحداثيات', 'error');
+                resetAddBtn();
                 return;
             }
+            processFire(parseFloat(data[0].lat), parseFloat(data[0].lon), place);
+        })
+        .catch(function (error) {
+            console.error('خطأ:', error);
+            updateInfo('⚠️ حدث خطأ في الاتصال بخدمة البحث', 'error');
+            resetAddBtn();
+        });
+}
 
-            const sorted = [...fires].reverse();
-            
-            let items = [];
-            sorted.forEach((fire) => {
-                const config = severityConfig[fire.severity] || severityConfig.low;
-                const severityClass = fire.extinguished ? 'extinguished' : (fire.severity || 'low');
-                const statusText = fire.extinguished ? '✅ مُطفأ' : `${config.emoji} ${config.label}`;
-                const icon = fire.extinguished ? '✅' : '🔥';
-                items.push(`
-                    <span class="marquee-item">
-                        <span class="fire-icon">${icon}</span>
-                        <span class="fire-place">${fire.place}</span>
-                        <span class="fire-severity ${severityClass}">${statusText}</span>
-                        <span class="fire-date-small">📅 ${fire.date}</span>
-                    </span>
-                `);
+// ============================================
+// 12. التنبيهات (صوت + نافذة + إشعار المتصفح)
+// ============================================
+let audioCtx = null;
+
+function getAudio() {
+    if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) audioCtx = new AC();
+    }
+    return audioCtx;
+}
+
+function unlockAudio() {
+    const ctx = getAudio();
+    if (ctx && ctx.state === 'suspended') ctx.resume();
+}
+// المتصفحات تمنع الصوت قبل تفاعل المستخدم، لذلك نفتح السياق عند أول نقرة/لمسة
+['pointerdown', 'keydown', 'touchstart'].forEach(function (ev) {
+    document.addEventListener(ev, unlockAudio, { once: true, passive: true });
+});
+
+function beep(ctx, freq, type, gain, start, dur) {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.value = gain;
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(ctx.currentTime + start);
+    o.stop(ctx.currentTime + start + dur);
+}
+
+function playAlertSound(severity) {
+    try {
+        const ctx = getAudio();
+        if (!ctx || ctx.state !== 'running') return;
+        const cfg = {
+            extreme: { n: 6, f: 800, t: 'sawtooth', g: 0.15 },
+            high:    { n: 4, f: 600, t: 'square',   g: 0.12 },
+            medium:  { n: 2, f: 400, t: 'sine',     g: 0.08 },
+            low:     { n: 1, f: 400, t: 'sine',     g: 0.08 }
+        }[severity] || { n: 1, f: 400, t: 'sine', g: 0.08 };
+        for (let i = 0; i < cfg.n; i++) beep(ctx, cfg.f, cfg.t, cfg.g, i * 0.5, 0.3);
+        if (severity === 'extreme') beep(ctx, 1000, 'square', 0.1, 3, 0.6);
+    } catch (e) {
+        console.log('⚠️ تعذّر تشغيل الصوت:', e);
+    }
+}
+
+async function enableAlerts() {
+    unlockAudio();
+    const ctx = getAudio();
+    if (ctx) { try { beep(ctx, 600, 'sine', 0.08, 0, 0.25); } catch (e) {} }
+    if ('Notification' in window && Notification.permission === 'default') {
+        try { await Notification.requestPermission(); } catch (e) {}
+    }
+    alertsEnabled = true;
+    const btn = document.getElementById('enableAlertsBtn');
+    btn.textContent = '🔔 التنبيهات مفعّلة';
+    btn.classList.add('on');
+}
+
+function notifyNewFires(list) {
+    const rank = { low: 1, medium: 2, high: 3, extreme: 4 };
+    const top = list.slice().sort((a, b) => rank[b.severity] - rank[a.severity])[0];
+    showPersistentAlert(top, list.length - 1);
+    playAlertSound(top.severity);
+
+    if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+            new Notification('🚨 إنذار حريق جديد', {
+                body: top.place + ' - ' + (severityConfig[top.severity].label) + (list.length > 1 ? ' (+' + (list.length - 1) + ' أخرى)' : '')
             });
+        } catch (e) {}
+    }
+    if (document.hidden) document.title = '🚨 إنذار حريق جديد!';
+}
 
-            const allItems = items.join('') + items.join('');
-            content.innerHTML = allItems;
-            
-            content.style.animation = 'none';
-            void content.offsetWidth;
-            content.style.animation = 'marqueeAnim 20s linear infinite';
-        }
+function showPersistentAlert(fire, extraCount) {
+    const overlay = document.getElementById('alertOverlay');
+    const cfg = severityConfig[fire.severity] || severityConfig.low;
 
-        function updateChart() {
-            const ctx = document.getElementById('severityChart').getContext('2d');
-            
-            const activeFires = fires.filter(f => !f.extinguished);
-            const counts = {
-                low: activeFires.filter(f => f.severity === 'low').length,
-                medium: activeFires.filter(f => f.severity === 'medium').length,
-                high: activeFires.filter(f => f.severity === 'high').length,
-                extreme: activeFires.filter(f => f.severity === 'extreme').length
-            };
+    document.getElementById('alertPlace').textContent = '📍 ' + fire.place;
+    document.getElementById('alertDescription').textContent =
+        '📝 ' + (fire.description || 'لا يوجد وصف') + (extraCount > 0 ? '  (+' + extraCount + ' حرائق أخرى)' : '');
 
-            if (chartInstance) {
-                chartInstance.destroy();
-            }
+    const tag = document.getElementById('alertSeverityTag');
+    tag.textContent = cfg.emoji + ' ' + cfg.label;
+    tag.className = 'severity-tag ' + fire.severity;
 
-            chartInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['🟢 منخفضة', '🟡 متوسطة', '🟠 عالية', '🔴 قصوى'],
-                    datasets: [{
-                        data: [counts.low, counts.medium, counts.high, counts.extreme],
-                        backgroundColor: ['#2e7d32', '#f57f17', '#e65100', '#b71c1c'],
-                        borderColor: ['#1b5e20', '#e65100', '#bf360c', '#880e4f'],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { font: { size: 10 }, padding: 6 }
-                        }
-                    }
-                }
-            });
-        }
+    document.getElementById('alertTime').textContent = '🕒 ' + new Date().toLocaleString('ar');
+    overlay.classList.add('active');
 
-        // ============================================
-        // 10. دالة إضافة حريق
-        // ============================================
-        function addFire() {
-            if (!currentUser) {
-                updateInfo('⚠️ الرجاء تسجيل الدخول أولاً', 'error');
-                return;
-            }
+    // عند النقر على «تم الاستلام» ننتقل لموقع الحريق
+    overlay.dataset.lat = fire.lat;
+    overlay.dataset.lng = fire.lng;
 
-            const place = document.getElementById('place').value.trim();
-            const latInput = document.getElementById('lat').value.trim();
-            const lngInput = document.getElementById('lng').value.trim();
-            const date = document.getElementById('date').value;
-            const severity = document.getElementById('severity').value;
-            const description = document.getElementById('description').value.trim();
+    if (fire.severity === 'extreme') {
+        document.body.style.animation = 'shakeAlert 0.5s ease';
+        setTimeout(() => { document.body.style.animation = ''; }, 600);
+    }
+}
 
-            if (!place && (!latInput || !lngInput)) {
-                updateInfo('⚠️ الرجاء إدخال اسم المكان أو الإحداثيات', 'error');
-                return;
-            }
+function closeAlert() {
+    const overlay = document.getElementById('alertOverlay');
+    overlay.classList.remove('active');
+    document.body.style.animation = '';
+    document.title = baseTitle;
+    const lat = parseFloat(overlay.dataset.lat), lng = parseFloat(overlay.dataset.lng);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) map.flyTo([lat, lng], 14, { duration: 1.2 });
+}
+document.addEventListener('visibilitychange', function () {
+    if (!document.hidden) document.title = baseTitle;
+});
 
-            const btn = document.querySelector('.form-container .add-btn');
-            btn.disabled = true;
-            btn.textContent = '⏳ جاري...';
+// ============================================
+// 13. عرض الحرائق على الخريطة
+// ============================================
+function removeAllFireLayers() {
+    Object.keys(fireMarkers).forEach(id => map.removeLayer(fireMarkers[id]));
+    Object.keys(fireExtras).forEach(id => fireExtras[id].forEach(l => map.removeLayer(l)));
+    fireMarkers = {};
+    fireExtras = {};
+}
 
-            const processFire = (lat, lng, placeName) => {
-                const fire = {
-                    place: placeName || `نقطة (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
-                    date: date || new Date().toISOString().split('T')[0],
-                    severity: severity,
-                    description: description || 'لا يوجد وصف',
-                    lat: lat,
-                    lng: lng,
-                    addedAt: new Date().toISOString(),
-                    extinguished: false,
-                    addedBy: currentUser
+function renderFires() {
+    isRebuilding = true;
+    removeAllFireLayers();
+    fires.forEach(f => addFireToMap(f));
+    if (openPopupFireId && fireMarkers[openPopupFireId]) {
+        fireMarkers[openPopupFireId].openPopup();
+    }
+    isRebuilding = false;
+}
+
+function durationText(fire) {
+    if (fire.extinguished || !fire.addedAt) return '';
+    const diffMin = Math.floor((Date.now() - new Date(fire.addedAt).getTime()) / 60000);
+    if (!Number.isFinite(diffMin) || diffMin < 0) return '';
+    const diffHr = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHr / 24);
+    if (diffDay > 0) return '⏱️ ' + diffDay + ' يوم';
+    if (diffHr > 0) return '⏱️ ' + diffHr + ' ساعة';
+    if (diffMin > 0) return '⏱️ ' + diffMin + ' دقيقة';
+    return '⏱️ أقل من دقيقة';
+}
+
+function addFireToMap(fire) {
+    const config = fire.extinguished ? severityConfig.extinguished : (severityConfig[fire.severity] || severityConfig.low);
+    const statusText = fire.extinguished ? '✅ مُطفأ' : config.emoji + ' ' + config.label;
+    const isDangerous = !fire.extinguished && (fire.severity === 'high' || fire.severity === 'extreme');
+    const isExtreme = !fire.extinguished && fire.severity === 'extreme';
+    const id = escapeHtml(fire.id);
+
+    let actions = '';
+    if (canEdit() && !fire.extinguished) {
+        actions += '<button class="extinguish-btn" data-action="extinguish" data-id="' + id + '">🧯 إطفاء</button>';
+    }
+    if (isAdmin()) {
+        actions += '<button class="delete-btn" data-action="delete" data-id="' + id + '" ' +
+            'style="background:#c62828; color:white; border:none; border-radius:30px; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:bold; margin-top:5px; width:100%; display:block; text-align:center;">🗑️ حذف</button>';
+    }
+
+    const dur = durationText(fire);
+    const popupContent =
+        '<div class="popup-content">' +
+        '<strong>📍 المكان:</strong> ' + escapeHtml(fire.place) + '<br>' +
+        '<strong>📅 التاريخ:</strong> <span class="fire-date">' + escapeHtml(fire.date) + '</span><br>' +
+        '<strong>🗺️ الإحداثيات:</strong><br>' +
+        '<span class="gps-coords">' + fire.lat.toFixed(6) + ', ' + fire.lng.toFixed(6) + '</span><br>' +
+        '<strong>🔥 الشدة:</strong><br>' +
+        '<span class="severity-badge" style="background:' + config.color + '; color:white;">' + statusText + '</span><br>' +
+        (dur ? '<span class="duration">' + dur + '</span><br>' : '') +
+        '<strong>📝 الوصف:</strong> ' + escapeHtml(fire.description || 'لا يوجد') + '<br>' +
+        '<small style="color:#888;">🕒 ' + escapeHtml(new Date(fire.addedAt).toLocaleString('ar')) + '</small>' +
+        (fire.addedBy ? '<br><small style="color:#666;">👤 ' + escapeHtml(fire.addedBy) + '</small>' : '') +
+        (fire.extinguished ? '<div class="extinguished-badge">✅ تم إطفاء هذا الحريق</div>' : '') +
+        (isExtreme ? '<div class="warning-badge">🚨 حالة طارئة - تدخل فوري</div>' : '') +
+        (isDangerous && !isExtreme ? '<div class="warning-badge" style="background:#e65100; color:#fff8e1; animation: blinkWarning 1.5s infinite;">⚠️ خطر مرتفع - مراقبة مستمرة</div>' : '') +
+        (actions ? '<div class="popup-actions">' + actions + '</div>' : '') +
+        '</div>';
+
+    const marker = L.marker([fire.lat, fire.lng], {
+        icon: getFlameIcon(fire.severity, fire.extinguished),
+        title: fire.place + (fire.extinguished ? ' (مُطفأ)' : '')
+    })
+        .addTo(map)
+        .bindPopup(popupContent, { className: 'custom-popup', maxWidth: 280 })
+        .bindTooltip(escapeHtml(fire.place) + (fire.extinguished ? ' ✅' : ''), {
+            permanent: false, direction: 'top', className: 'leaflet-tooltip'
+        });
+    marker._fireId = fire.id;
+    fireMarkers[fire.id] = marker;
+
+    if (isDangerous) {
+        const color = isExtreme ? '#ff1744' : '#ff9100';
+        const pulse = L.circleMarker([fire.lat, fire.lng], {
+            radius: isExtreme ? 20 : 16, color: color, weight: 4, opacity: 0.9,
+            fillColor: color, fillOpacity: 0.15,
+            className: isExtreme ? 'pulse-circle-extreme' : 'pulse-circle-high'
+        }).addTo(map);
+        const inner = L.circleMarker([fire.lat, fire.lng], {
+            radius: isExtreme ? 8 : 6, color: color, weight: 2, opacity: 0.6,
+            fillColor: color, fillOpacity: 0.3, interactive: false
+        }).addTo(map);
+        fireExtras[fire.id] = [pulse, inner];   // كلاهما يُحذف عند إعادة الرسم
+    }
+    return marker;
+}
+
+// أزرار النافذة المنبثقة عبر تفويض الأحداث (بدل onclick المضمّن في HTML)
+map.on('popupopen', function (e) {
+    const src = e.popup._source;
+    if (src && src._fireId) openPopupFireId = src._fireId;
+    const el = e.popup.getElement();
+    if (!el) return;
+    el.querySelectorAll('[data-action]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (btn.dataset.action === 'extinguish') extinguishFire(btn.dataset.id);
+            else if (btn.dataset.action === 'delete') deleteFire(btn.dataset.id);
+        });
+    });
+});
+map.on('popupclose', function () {
+    if (!isRebuilding) openPopupFireId = null;
+});
+
+// ============================================
+// 14. إطفاء وحذف (الصلاحيات تُفرض أيضاً في قواعد Firestore)
+// ============================================
+function extinguishFire(fireId) {
+    if (!canEdit()) { updateInfo('⚠️ هذه العملية للطاقم المصرّح له فقط', 'error'); return; }
+    db.collection('fires').doc(safeId(fireId)).update({
+        extinguished: true,
+        extinguishedAt: new Date().toISOString(),
+        extinguishedBy: currentUser.email
+    })
+        .then(function () { updateInfo('🧯 تم إطفاء الحريق بواسطة ' + currentUser.email, 'success'); map.closePopup(); })
+        .catch(function (error) {
+            console.error('❌ خطأ في الإطفاء:', error);
+            updateInfo('⚠️ تعذّر تنفيذ الإطفاء', 'error');
+        });
+}
+
+function deleteFire(fireId) {
+    if (!isAdmin()) { updateInfo('⚠️ الحذف للمدير فقط', 'error'); return; }
+    if (!confirm('⚠️ هل أنت متأكد من حذف هذا الحريق نهائياً؟')) return;
+    db.collection('fires').doc(safeId(fireId)).delete()
+        .then(function () { updateInfo('🗑️ تم حذف الحريق بنجاح', 'success'); map.closePopup(); })
+        .catch(function (error) {
+            console.error('❌ خطأ في الحذف:', error);
+            updateInfo('⚠️ تعذّر الحذف', 'error');
+        });
+}
+
+// ============================================
+// 15. استيراد وتصدير البيانات
+// ============================================
+function importData(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!isAdmin()) { updateInfo('⚠️ الاستيراد للمدير فقط', 'error'); return; }
+    if (file.size > 1024 * 1024) { updateInfo('⚠️ الملف كبير جداً (الحد 1 ميغابايت)', 'error'); return; }
+
+    const reader = new FileReader();
+    reader.onload = async function (e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            if (!data || !Array.isArray(data.fires)) { updateInfo('⚠️ ملف غير صالح', 'error'); return; }
+
+            const valid = [];
+            data.fires.slice(0, 200).forEach(function (raw) {
+                const f = sanitizeFire(raw, 'x');
+                if (!f || !f.place || !inBounds(f.lat, f.lng)) return;
+                const doc = {
+                    place: f.place, date: f.date, severity: f.severity,
+                    description: f.description, lat: f.lat, lng: f.lng,
+                    addedAt: f.addedAt, extinguished: f.extinguished,
+                    addedBy: currentUser.email, imported: true
                 };
-
-                if (isFirebaseReady) {
-                    db.collection('fires').add(fire)
-                        .then(() => {
-                            clearForm();
-                            const severityLabel = severityConfig[severity].label;
-                            updateInfo(`✅ تم تسجيل حريق في "${fire.place}" | الشدة: ${severityLabel}`, 'success');
-                            btn.disabled = false;
-                            btn.textContent = '➕ إضافة';
-                        })
-                        .catch((error) => {
-                            console.error('❌ خطأ في الحفظ:', error);
-                            saveFireLocal(fire);
-                            btn.disabled = false;
-                            btn.textContent = '➕ إضافة';
-                        });
-                } else {
-                    saveFireLocal(fire);
-                    btn.disabled = false;
-                    btn.textContent = '➕ إضافة';
-                }
-            };
-
-            if (latInput && lngInput) {
-                const lat = parseFloat(latInput);
-                const lng = parseFloat(lngInput);
-                
-                if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-                    updateInfo('⚠️ إحداثيات غير صالحة', 'error');
-                    btn.disabled = false;
-                    btn.textContent = '➕ إضافة';
-                    return;
-                }
-
-                processFire(lat, lng, place);
-                return;
-            }
-
-            if (place) {
-                let foundMunicipality = municipalities.find(m => 
-                    m.name === place || 
-                    m.name.includes(place) || 
-                    place.includes(m.name)
-                );
-
-                if (!foundMunicipality) {
-                    const cleanPlace = place.replace(/\s/g, '');
-                    foundMunicipality = municipalities.find(m => 
-                        m.name.replace(/\s/g, '').includes(cleanPlace) || 
-                        cleanPlace.includes(m.name.replace(/\s/g, ''))
-                    );
-                }
-
-                if (foundMunicipality) {
-                    processFire(foundMunicipality.lat, foundMunicipality.lng, foundMunicipality.name);
-                    return;
-                }
-
-                const searchUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(place + '، ولاية سكيكدة، الجزائر')}&limit=1`;
-
-                fetch(searchUrl)
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.length === 0) {
-                            updateInfo(`❌ لم يتم العثور على "${place}" في سكيكدة`, 'error');
-                            btn.disabled = false;
-                            btn.textContent = '➕ إضافة';
-                            return;
-                        }
-
-                        const lat = parseFloat(data[0].lat);
-                        const lng = parseFloat(data[0].lon);
-                        processFire(lat, lng, place);
-                    })
-                    .catch(error => {
-                        console.error('خطأ:', error);
-                        updateInfo('⚠️ حدث خطأ في الاتصال', 'error');
-                        btn.disabled = false;
-                        btn.textContent = '➕ إضافة';
-                    });
-            }
-        }
-
-        // ============================================
-        // 🎵 تشغيل صوت التحذير
-        // ============================================
-        function playAlertSound(severity) {
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                
-                const repeatCount = severity === 'extreme' ? 6 : 
-                                   severity === 'high' ? 4 : 
-                                   severity === 'medium' ? 2 : 1;
-                
-                let count = 0;
-                const interval = setInterval(() => {
-                    const oscillator = audioCtx.createOscillator();
-                    const gainNode = audioCtx.createGain();
-                    oscillator.connect(gainNode);
-                    gainNode.connect(audioCtx.destination);
-                    
-                    if (severity === 'extreme') {
-                        oscillator.frequency.value = 800;
-                        gainNode.gain.value = 0.15;
-                        oscillator.type = 'sawtooth';
-                    } else if (severity === 'high') {
-                        oscillator.frequency.value = 600;
-                        gainNode.gain.value = 0.12;
-                        oscillator.type = 'square';
-                    } else {
-                        oscillator.frequency.value = 400;
-                        gainNode.gain.value = 0.08;
-                        oscillator.type = 'sine';
-                    }
-                    
-                    oscillator.start();
-                    setTimeout(() => oscillator.stop(), 300);
-                    
-                    count++;
-                    if (count >= repeatCount) {
-                        clearInterval(interval);
-                    }
-                }, 500);
-                
-                if (severity === 'extreme') {
-                    setTimeout(() => {
-                        const osc2 = audioCtx.createOscillator();
-                        const gain2 = audioCtx.createGain();
-                        osc2.connect(gain2);
-                        gain2.connect(audioCtx.destination);
-                        osc2.frequency.value = 1000;
-                        gain2.gain.value = 0.1;
-                        osc2.type = 'square';
-                        osc2.start();
-                        setTimeout(() => osc2.stop(), 600);
-                    }, 3000);
-                }
-            } catch (e) {
-                console.log('⚠️ تعذر تشغيل الصوت:', e);
-            }
-        }
-
-        // ============================================
-        // 🚨 إظهار نافذة التحذير الثابتة (لجميع المستخدمين)
-        // ============================================
-        function showPersistentAlert(fire) {
-            const overlay = document.getElementById('alertOverlay');
-            const severityLabel = severityConfig[fire.severity]?.label || 'غير معروف';
-            const severityEmoji = severityConfig[fire.severity]?.emoji || '🔥';
-            
-            document.getElementById('alertPlace').textContent = `📍 ${fire.place}`;
-            document.getElementById('alertDescription').textContent = `📝 ${fire.description || 'لا يوجد وصف'}`;
-            
-            const tag = document.getElementById('alertSeverityTag');
-            tag.textContent = `${severityEmoji} ${severityLabel}`;
-            tag.className = `severity-tag ${fire.severity}`;
-            
-            const now = new Date();
-            document.getElementById('alertTime').textContent = `🕒 ${now.toLocaleString('ar')}`;
-            
-            overlay.classList.add('active');
-            
-            if (fire.severity === 'extreme') {
-                document.body.style.animation = 'shakeAlert 0.5s ease';
-                setTimeout(() => {
-                    document.body.style.animation = '';
-                }, 600);
-            }
-        }
-
-        // ============================================
-        // ❌ إغلاق نافذة التحذير
-        // ============================================
-        function closeAlert() {
-            document.getElementById('alertOverlay').classList.remove('active');
-            document.body.style.animation = '';
-        }
-
-        // ============================================
-        // 11. دوال أخرى
-        // ============================================
-        function saveFireLocal(fire) {
-            let localFires = [];
-            const saved = localStorage.getItem('skikdaFires');
-            if (saved) {
-                try {
-                    localFires = JSON.parse(saved);
-                } catch (e) {}
-            }
-            localFires.push({ ...fire, id: Date.now() });
-            localStorage.setItem('skikdaFires', JSON.stringify(localFires));
-            
-            updateFires(localFires);
-            
-            const severityLabel = severityConfig[fire.severity].label;
-            updateInfo(`✅ تم تسجيل حريق محلياً في "${fire.place}" | الشدة: ${severityLabel}`, 'success');
-        }
-
-        // ============================================
-        // 12. عرض الحريق على الخريطة
-        // ============================================
-        function addFireToMap(fire, animate = true) {
-            const config = fire.extinguished ? 
-                severityConfig.extinguished : 
-                (severityConfig[fire.severity] || severityConfig.low);
-
-            const statusText = fire.extinguished ? 
-                '✅ مُطفأ' : 
-                `${config.emoji} ${config.label}`;
-
-            let durationText = '';
-            if (!fire.extinguished && fire.addedAt) {
-                const start = new Date(fire.addedAt);
-                const now = new Date();
-                const diffMs = now - start;
-                const diffMin = Math.floor(diffMs / 60000);
-                const diffHr = Math.floor(diffMin / 60);
-                const diffDay = Math.floor(diffHr / 24);
-                if (diffDay > 0) durationText = `⏱️ ${diffDay} يوم`;
-                else if (diffHr > 0) durationText = `⏱️ ${diffHr} ساعة`;
-                else if (diffMin > 0) durationText = `⏱️ ${diffMin} دقيقة`;
-                else durationText = `⏱️ أقل من دقيقة`;
-            }
-
-            const isDangerous = !fire.extinguished && (fire.severity === 'high' || fire.severity === 'extreme');
-            const isExtreme = !fire.extinguished && fire.severity === 'extreme';
-
-            let actionButtons = '';
-            if (!fire.extinguished) {
-                actionButtons = `
-                    <div class="popup-actions">
-                        <button class="extinguish-btn" onclick="extinguishFire('${fire.id}')">
-                            🧯 إطفاء
-                        </button>
-                        <button class="delete-btn" onclick="deleteFire('${fire.id}')" style="background:#c62828; color:white; border:none; border-radius:30px; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:bold; margin-top:5px; width:100%; display:block; text-align:center;">
-                            🗑️ حذف
-                        </button>
-                    </div>
-                `;
-            } else {
-                actionButtons = `
-                    <div class="popup-actions">
-                        <button class="delete-btn" onclick="deleteFire('${fire.id}')" style="background:#c62828; color:white; border:none; border-radius:30px; padding:4px 12px; cursor:pointer; font-size:11px; font-weight:bold; margin-top:5px; width:100%; display:block; text-align:center;">
-                            🗑️ حذف
-                        </button>
-                    </div>
-                `;
-            }
-
-            const popupContent = `
-                <div class="popup-content">
-                    <strong>📍 المكان:</strong> ${fire.place}<br>
-                    <strong>📅 التاريخ:</strong> <span class="fire-date">${fire.date}</span><br>
-                    <strong>🗺️ الإحداثيات:</strong><br>
-                    <span class="gps-coords">${fire.lat.toFixed(6)}, ${fire.lng.toFixed(6)}</span><br>
-                    <strong>🔥 الشدة:</strong><br>
-                    <span class="severity-badge" style="background:${config.color}; color:white;">
-                        ${statusText}
-                    </span><br>
-                    ${!fire.extinguished ? `<span class="duration">${durationText}</span><br>` : ''}
-                    <strong>📝 الوصف:</strong> ${fire.description || 'لا يوجد'}<br>
-                    <small style="color:#888;">🕒 ${new Date(fire.addedAt || fire.id).toLocaleString('ar')}</small>
-                    ${fire.addedBy ? `<small style="color:#666;">👤 ${fire.addedBy}</small><br>` : ''}
-                    ${fire.extinguished ? `<div class="extinguished-badge">✅ تم إطفاء هذا الحريق</div>` : ''}
-                    ${isExtreme ? `<div class="warning-badge">🚨 حالة طارئة - تدخل فوري</div>` : ''}
-                    ${isDangerous && !isExtreme ? `<div class="warning-badge" style="background:#e65100; color:#fff8e1; animation: blinkWarning 1.5s infinite;">⚠️ خطر مرتفع - مراقبة مستمرة</div>` : ''}
-                    ${actionButtons}
-                </div>
-            `;
-
-            const icon = getFlameIcon(fire.severity, fire.extinguished);
-            
-            const marker = L.marker([fire.lat, fire.lng], {
-                icon: icon,
-                title: fire.place + (fire.extinguished ? ' (مُطفأ)' : '')
-            })
-            .addTo(map)
-            .bindPopup(popupContent, {
-                className: 'custom-popup',
-                maxWidth: 280
-            })
-            .bindTooltip(fire.place + (fire.extinguished ? ' ✅' : ''), {
-                permanent: false,
-                direction: 'top',
-                className: 'leaflet-tooltip'
+                if (f.extinguished) { doc.extinguishedAt = f.extinguishedAt; doc.extinguishedBy = f.extinguishedBy; }
+                valid.push(doc);
             });
 
-            let pulseCircle = null;
-            if (isDangerous) {
-                const circleColor = isExtreme ? '#ff1744' : '#ff9100';
-                const pulseClass = isExtreme ? 'pulse-circle-extreme' : 'pulse-circle-high';
-                
-                pulseCircle = L.circleMarker([fire.lat, fire.lng], {
-                    radius: isExtreme ? 20 : 16,
-                    color: circleColor,
-                    weight: 4,
-                    opacity: 0.9,
-                    fillColor: circleColor,
-                    fillOpacity: 0.15,
-                    className: pulseClass
-                }).addTo(map);
-                
-                L.circleMarker([fire.lat, fire.lng], {
-                    radius: isExtreme ? 8 : 6,
-                    color: circleColor,
-                    weight: 2,
-                    opacity: 0.6,
-                    fillColor: circleColor,
-                    fillOpacity: 0.3,
-                    interactive: false
-                }).addTo(map);
-                
-                pulseCircles[fire.id] = pulseCircle;
-            }
+            if (!valid.length) { updateInfo('⚠️ لا توجد سجلات صالحة في الملف', 'error'); return; }
+            if (!confirm('📤 سيتم استيراد ' + valid.length + ' حريق صالح من أصل ' + data.fires.length + '. هل تريد المتابعة؟')) return;
 
-            fireMarkers[fire.id] = marker;
-
-            if (animate) {
-                const targetLatLng = L.latLng(fire.lat, fire.lng);
-                setTimeout(() => marker.openPopup(), 300);
-                if (map.getZoom() < 14) {
-                    map.flyTo(targetLatLng, 14, { duration: 1.2 });
-                }
-            }
-
-            return marker;
+            const batch = db.batch();
+            valid.forEach(v => batch.set(db.collection('fires').doc(), v));
+            await batch.commit();
+            updateInfo('📤 تم استيراد ' + valid.length + ' حريق بنجاح', 'success');
+        } catch (error) {
+            console.error('خطأ في الاستيراد:', error);
+            updateInfo('⚠️ فشل الاستيراد (ملف تالف أو لا تملك الصلاحية)', 'error');
         }
+    };
+    reader.readAsText(file);
+}
 
-        // ============================================
-        // 13. إطفاء الحريق
-        // ============================================
-        function extinguishFire(fireId) {
-            if (!currentUser) {
-                updateInfo('⚠️ الرجاء تسجيل الدخول أولاً', 'error');
-                return;
-            }
+function exportData() {
+    if (!canEdit()) { updateInfo('⚠️ التصدير للطاقم المصرّح له فقط', 'error'); return; }
+    if (fires.length === 0) { updateInfo('⚠️ لا توجد بيانات للتصدير', 'error'); return; }
 
-            if (!isFirebaseReady) {
-                updateInfo('⚠️ غير متصل بالسحابة، لا يمكن الإطفاء', 'error');
-                return;
-            }
+    const data = {
+        exportedAt: new Date().toISOString(),
+        exportedBy: currentUser.email,
+        totalFires: fires.length,
+        activeFires: fires.filter(f => !f.extinguished).length,
+        extinguishedFires: fires.filter(f => f.extinguished).length,
+        fires: fires.map(f => { const c = Object.assign({}, f); delete c.id; return c; })
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'حرائق_سكيكدة_' + todayStr() + '.json';
+    a.click();
+    URL.revokeObjectURL(url);
+    updateInfo('📥 تم تصدير ' + fires.length + ' حريق بنجاح', 'success');
+}
 
-            db.collection('fires').doc(fireId).update({
-                extinguished: true,
-                extinguishedAt: new Date().toISOString(),
-                extinguishedBy: currentUser
-            })
-            .then(() => {
-                updateInfo(`🧯 تم إطفاء الحريق بواسطة ${currentUser}`, 'success');
-                map.closePopup();
-            })
-            .catch((error) => {
-                console.error('❌ خطأ في الإطفاء:', error);
-                updateInfo('⚠️ حدث خطأ أثناء الإطفاء', 'error');
-            });
+// ============================================
+// 16. مسح جميع الحرائق (للمدير فقط - بدون أرقام سرية في الكود)
+// ============================================
+async function clearAllFires() {
+    if (!isAdmin()) { updateInfo('⚠️ المسح للمدير فقط', 'error'); return; }
+    if (fires.length === 0) { updateInfo('⚠️ لا توجد حرائق للمسح', 'error'); return; }
+
+    if (!confirm('⚠️ هل أنت متأكد من مسح جميع الحرائق؟')) return;
+    const typed = prompt('للتأكيد اكتب كلمة: مسح');
+    if (typed === null || typed.trim() !== 'مسح') { updateInfo('❌ تم إلغاء عملية المسح', 'error'); return; }
+
+    try {
+        const snapshot = await db.collection('fires').get();
+        const docs = snapshot.docs;
+        for (let i = 0; i < docs.length; i += 400) {
+            const batch = db.batch();
+            docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+            await batch.commit();
         }
+        updateInfo('🗑️ تم مسح جميع الحرائق (' + docs.length + ')', 'success');
+    } catch (error) {
+        console.error('❌ خطأ في المسح:', error);
+        updateInfo('⚠️ حدث خطأ أثناء المسح', 'error');
+    }
+}
 
-        // ============================================
-        // 14. حذف الحريق
-        // ============================================
-        function deleteFire(fireId) {
-            if (!currentUser) {
-                updateInfo('⚠️ الرجاء تسجيل الدخول أولاً', 'error');
-                return;
-            }
+// ============================================
+// 17. دوال مساعدة للواجهة
+// ============================================
+function updateInfo(message, type) {
+    const info = document.getElementById('info');
+    info.textContent = message;
+    info.className = type || '';
+    clearTimeout(info._timeout);
+    info._timeout = setTimeout(function () {
+        if (type !== 'success' && type !== 'warning') info.className = '';
+    }, 6000);
+}
 
-            if (!isFirebaseReady) {
-                updateInfo('⚠️ غير متصل بالسحابة، لا يمكن الحذف', 'error');
-                return;
-            }
+function clearForm() {
+    document.getElementById('place').value = '';
+    document.getElementById('lat').value = '';
+    document.getElementById('lng').value = '';
+    document.getElementById('description').value = '';
+    document.getElementById('date').value = todayStr();
+    coordsAutoFilled = false;
+}
 
-            if (!confirm('⚠️ هل أنت متأكد من حذف هذا الحريق نهائياً؟')) {
-                return;
-            }
+// ============================================
+// 18. تشغيل التطبيق
+// ============================================
+document.getElementById('date').value = todayStr();
 
-            db.collection('fires').doc(fireId).delete()
-                .then(() => {
-                    updateInfo(`🗑️ تم حذف الحريق بنجاح`, 'success');
-                    map.closePopup();
-                })
-                .catch((error) => {
-                    console.error('❌ خطأ في الحذف:', error);
-                    updateInfo('⚠️ حدث خطأ أثناء الحذف', 'error');
-                });
+document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter') return;
+    if (!loginScreen.classList.contains('hidden')) { e.preventDefault(); login(); return; }
+    if (e.target.closest && e.target.closest('.form-container')) {
+        e.preventDefault();
+        if (e.target.id === 'place' && suggestionsList.classList.contains('show')) {
+            const first = suggestionsList.querySelector('.suggestion-item');
+            if (first) { first.click(); return; }
         }
+        addFire();
+    }
+});
 
-        // ============================================
-        // 15. استيراد وتصدير البيانات
-        // ============================================
-        function importData(event) {
-            if (!currentUser) {
-                updateInfo('⚠️ الرجاء تسجيل الدخول أولاً', 'error');
-                return;
-            }
+setTimeout(function () {
+    map.fitBounds(boundaryLayer.getBounds(), { padding: [40, 40], maxZoom: 12 });
+}, 500);
 
-            const file = event.target.files[0];
-            if (!file) return;
+applyAuthUI();
+startCloud();
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    
-                    if (!data.fires || !Array.isArray(data.fires)) {
-                        updateInfo('⚠️ ملف غير صالح', 'error');
-                        return;
-                    }
-
-                    if (!confirm(`📤 سيتم استيراد ${data.fires.length} حريق. هل تريد المتابعة؟`)) {
-                        return;
-                    }
-
-                    if (isFirebaseReady) {
-                        data.fires.forEach((fire) => {
-                            if (!fire.addedAt) fire.addedAt = new Date().toISOString();
-                            if (fire.extinguished === undefined) fire.extinguished = false;
-                            fire.addedBy = fire.addedBy || 'imported';
-                            db.collection('fires').add(fire);
-                        });
-                        updateInfo(`📤 جاري استيراد ${data.fires.length} حريق إلى السحابة...`, 'success');
-                    } else {
-                        let localFires = [];
-                        const saved = localStorage.getItem('skikdaFires');
-                        if (saved) {
-                            try {
-                                localFires = JSON.parse(saved);
-                            } catch (e) {}
-                        }
-                        data.fires.forEach((fire) => {
-                            if (!fire.addedAt) fire.addedAt = new Date().toISOString();
-                            if (fire.extinguished === undefined) fire.extinguished = false;
-                            fire.addedBy = fire.addedBy || 'imported';
-                            localFires.push(fire);
-                        });
-                        localStorage.setItem('skikdaFires', JSON.stringify(localFires));
-                        updateFires(localFires);
-                        updateInfo(`📤 تم استيراد ${data.fires.length} حريق محلياً`, 'success');
-                    }
-                } catch (error) {
-                    console.error('خطأ في الاستيراد:', error);
-                    updateInfo('⚠️ خطأ في قراءة الملف', 'error');
-                }
-            };
-            reader.readAsText(file);
-            event.target.value = '';
-        }
-
-        function exportData() {
-            if (fires.length === 0) {
-                updateInfo('⚠️ لا توجد بيانات للتصدير', 'error');
-                return;
-            }
-
-            const data = {
-                exportedAt: new Date().toISOString(),
-                exportedBy: currentUser || 'unknown',
-                totalFires: fires.length,
-                activeFires: fires.filter(f => !f.extinguished).length,
-                extinguishedFires: fires.filter(f => f.extinguished).length,
-                fires: fires
-            };
-
-            const json = JSON.stringify(data, null, 2);
-            const blob = new Blob([json], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `حرائق_سكيكدة_${new Date().toISOString().split('T')[0]}.json`;
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            updateInfo(`📥 تم تصدير ${fires.length} حريق بنجاح`, 'success');
-        }
-
-        // ============================================
-        // 16. مسح جميع الحرائق
-        // ============================================
-        function clearAllFires() {
-            if (fires.length === 0) {
-                updateInfo('⚠️ لا توجد حرائق للمسح', 'error');
-                return;
-            }
-
-            const password = prompt('🔐 أدخل الرقم السري لتأكيد مسح جميع الحرائق:');
-            
-            if (password === null) {
-                updateInfo('❌ تم إلغاء عملية المسح', 'error');
-                return;
-            }
-
-            if (password !== '1234') {
-                updateInfo('❌ الرقم السري غير صحيح - تم إلغاء عملية المسح', 'error');
-                return;
-            }
-
-            if (!confirm(`⚠️ هل أنت متأكد من مسح جميع الحرائق (${fires.length})؟`)) {
-                updateInfo('❌ تم إلغاء عملية المسح', 'error');
-                return;
-            }
-            
-            if (!confirm('تأكيد نهائي: سيتم حذف جميع البيانات نهائيًا!')) {
-                updateInfo('❌ تم إلغاء عملية المسح', 'error');
-                return;
-            }
-
-            if (isFirebaseReady) {
-                db.collection('fires').get()
-                    .then((snapshot) => {
-                        const batch = db.batch();
-                        snapshot.forEach((doc) => {
-                            batch.delete(doc.ref);
-                        });
-                        return batch.commit();
-                    })
-                    .then(() => {
-                        updateInfo('🗑️ تم مسح جميع الحرائق من السحابة', 'success');
-                    })
-                    .catch((error) => {
-                        console.error('❌ خطأ في المسح:', error);
-                        updateInfo('⚠️ حدث خطأ أثناء المسح', 'error');
-                    });
-            } else {
-                localStorage.removeItem('skikdaFires');
-                Object.keys(fireMarkers).forEach(id => {
-                    map.removeLayer(fireMarkers[id]);
-                    if (pulseCircles[id]) {
-                        map.removeLayer(pulseCircles[id]);
-                        delete pulseCircles[id];
-                    }
-                });
-                fireMarkers = {};
-                fires = [];
-                updateAll();
-                updateInfo('🗑️ تم مسح جميع الحرائق محلياً', 'success');
-            }
-        }
-
-        // ============================================
-        // 17. دوال مساعدة
-        // ============================================
-        function updateInfo(message, type = '') {
-            const info = document.getElementById('info');
-            info.textContent = message;
-            info.className = type;
-            clearTimeout(info._timeout);
-            info._timeout = setTimeout(() => {
-                if (type !== 'success' && type !== 'warning') info.className = '';
-            }, 6000);
-        }
-
-        function clearForm() {
-            document.getElementById('place').value = '';
-            document.getElementById('lat').value = '';
-            document.getElementById('lng').value = '';
-            document.getElementById('description').value = '';
-            document.getElementById('date').value = new Date().toISOString().split('T')[0];
-        }
-
-        // ============================================
-        // 18. حرائق تجريبية
-        // ============================================
-        function loadSampleFires() {
-            const samples = [
-                { place: 'جبل بوكحيل', date: '2026-07-20', severity: 'extreme', description: '🚨 حريق هائل - استنفار فوري!' },
-                { place: 'غابة بني بشير', date: '2026-07-18', severity: 'high', description: 'اندلع بسبب موجة حر شديدة' },
-                { place: 'جبل السخنة', date: '2026-07-15', severity: 'medium', description: 'تمت السيطرة عليه بعد 3 ساعات' },
-                { place: 'غابة تمالوس', date: '2026-07-12', severity: 'low', description: 'حريق صغير تم إخماده بسرعة' },
-                { place: 'عين بوزيان', date: '2026-07-10', severity: 'high', description: 'قرب المناطق السكنية - خطر داهم' },
-                { place: 'غابة الحروش', date: '2026-07-08', severity: 'medium', description: 'ناتج عن إهمال بشري' },
-                { place: 'جبل القل', date: '2026-07-05', severity: 'extreme', description: '🚨 امتد بسرعة - حالة طوارئ' }
-            ];
-
-            if (isFirebaseReady) {
-                samples.forEach((sample) => {
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sample.place + '، ولاية سكيكدة، الجزائر')}&limit=1`)
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.length > 0) {
-                                const fire = {
-                                    place: sample.place,
-                                    date: sample.date,
-                                    severity: sample.severity,
-                                    description: sample.description,
-                                    lat: parseFloat(data[0].lat),
-                                    lng: parseFloat(data[0].lon),
-                                    addedAt: new Date().toISOString(),
-                                    extinguished: false,
-                                    addedBy: 'system'
-                                };
-                                db.collection('fires').add(fire);
-                            }
-                        })
-                        .catch(err => console.error('خطأ:', err));
-                });
-                updateInfo('📊 جاري تحميل حرائق تجريبية إلى السحابة...', 'success');
-            } else {
-                let localFires = [];
-                const saved = localStorage.getItem('skikdaFires');
-                if (saved) {
-                    try {
-                        localFires = JSON.parse(saved);
-                    } catch (e) {}
-                }
-                samples.forEach((sample) => {
-                    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(sample.place + '، ولاية سكيكدة، الجزائر')}&limit=1`)
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.length > 0) {
-                                const fire = {
-                                    id: Date.now() + Math.random() * 1000,
-                                    place: sample.place,
-                                    date: sample.date,
-                                    severity: sample.severity,
-                                    description: sample.description,
-                                    lat: parseFloat(data[0].lat),
-                                    lng: parseFloat(data[0].lon),
-                                    addedAt: new Date().toISOString(),
-                                    extinguished: false,
-                                    addedBy: 'system'
-                                };
-                                localFires.push(fire);
-                                localStorage.setItem('skikdaFires', JSON.stringify(localFires));
-                                updateFires(localFires);
-                            }
-                        })
-                        .catch(err => console.error('خطأ:', err));
-                });
-                updateInfo('📊 جاري تحميل حرائق تجريبية محلياً...', 'success');
-            }
-        }
-
-        // ============================================
-        // 19. تشغيل التطبيق
-        // ============================================
-        document.getElementById('date').value = new Date().toISOString().split('T')[0];
-
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter' && e.target.closest('.form-container')) {
-                e.preventDefault();
-                if (e.target.id === 'place' && suggestionsList.classList.contains('show')) {
-                    const firstSuggestion = suggestionsList.querySelector('.suggestion-item');
-                    if (firstSuggestion) { firstSuggestion.click(); return; }
-                }
-                addFire();
-            }
-        });
-
-        if ('Notification' in window && Notification.permission === 'default') {
-            Notification.requestPermission();
-        }
-
-        setTimeout(() => {
-            if (fires.length === 0 && isFirebaseReady) {
-                loadSampleFires();
-            }
-        }, 3000);
-
-        setTimeout(() => {
-            map.fitBounds(boundaryLayer.getBounds(), { padding: [40, 40], maxZoom: 12 });
-        }, 500);
-
-        console.log('🚨 نظام الإنذار المبكر للحرائق - سكيكدة');
-        console.log(`🏛️ عدد البلديات: ${municipalities.length}`);
-        console.log('💡 اكتب getStats() للإحصائيات');
-
-        window.getStats = function() {
-            const stats = {
-                total: fires.length,
-                active: fires.filter(f => !f.extinguished).length,
-                extinguished: fires.filter(f => f.extinguished).length,
-                bySeverity: {
-                    low: fires.filter(f => f.severity === 'low' && !f.extinguished).length,
-                    medium: fires.filter(f => f.severity === 'medium' && !f.extinguished).length,
-                    high: fires.filter(f => f.severity === 'high' && !f.extinguished).length,
-                    extreme: fires.filter(f => f.severity === 'extreme' && !f.extinguished).length
-                }
-            };
-            console.log(`📊 إحصائيات نظام الإنذار المبكر:`);
-            console.log(`   🔥 المجموع: ${stats.total}`);
-            console.log(`   🔴 نشطة: ${stats.active}`);
-            console.log(`   ✅ مطفأة: ${stats.extinguished}`);
-            console.log(`   ⚠️ عالية+قصوى: ${stats.bySeverity.high + stats.bySeverity.extreme}`);
-            console.table(stats.bySeverity);
-            return stats;
-        };
-
-        console.log('✅ النظام جاهز للعمل!');
     </script>
 </body>
 </html>
