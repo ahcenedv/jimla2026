@@ -1491,7 +1491,9 @@ function authErrorMessage(code) {
         case 'auth/too-many-requests': return '⏳ محاولات كثيرة، حاول لاحقاً';
         case 'auth/network-request-failed': return '⚠️ تعذّر الاتصال بالإنترنت';
         case 'auth/user-disabled': return '⛔ هذا الحساب معطّل';
-        default: return '❌ تعذّر تسجيل الدخول';
+        case 'auth/unauthorized-domain': return '⛔ النطاق غير مسموح في Firebase (Authorized domains) [' + code + ']';
+        case 'auth/operation-not-allowed': return '⛔ تسجيل الدخول بالبريد غير مفعّل في Firebase [' + code + ']';
+        default: return '❌ تعذّر تسجيل الدخول [' + (code || 'unknown') + ']';
     }
 }
 
@@ -1510,6 +1512,7 @@ async function login() {
         await auth.signInWithEmailAndPassword(email, password);
         // بقية العملية تتم في handleAuthChange
     } catch (e) {
+        console.error('Login error:', e);
         loginError.textContent = authErrorMessage(e && e.code);
     } finally {
         btn.disabled = false;
@@ -1566,13 +1569,13 @@ function applyAuthUI() {
 // 9. الاتصال بقاعدة البيانات والاستماع اللحظي
 // ============================================
 const firebaseConfig = {
-    // ⚠️ تأكد أن المفتاح منسوخ كاملاً من إعدادات مشروعك (Project settings → Your apps)
-    apiKey: "AIzaSyDmBtzU5r4T05PWZ3zcaYh2M9RrHwS8M",
+    // القيم منسوخة من Firebase ← Project settings ← Your apps ← Config
+    apiKey: "AIzaSyDmBtzUsrO4TO5PWZ3zcaYh2M99RtHwS8M",
     authDomain: "skikda-fires.firebaseapp.com",
     projectId: "skikda-fires",
     storageBucket: "skikda-fires.firebasestorage.app",
-    messagingSenderId: "198382849419",
-    appId: "1:198382849419:web:3be717cb52be8b8fb2038e"
+    messagingSenderId: "190382849419",
+    appId: "1:190382849419:web:3be717cb520eb80fb2038e"
 };
 
 function setStatus(ok, text) {
